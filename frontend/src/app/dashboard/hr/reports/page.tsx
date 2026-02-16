@@ -21,7 +21,7 @@ export default function ReportsPage() {
         setFetching(true);
         const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`http://localhost:3001/api/reports/payroll?startDate=${startDate}&endDate=${endDate}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/reports/payroll?startDate=${startDate}&endDate=${endDate}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {

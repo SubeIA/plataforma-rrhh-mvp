@@ -10,7 +10,7 @@ export default function HRRequestsPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const res = await fetch('http://localhost:3001/api/requests', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/requests`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -33,7 +33,7 @@ export default function HRRequestsPage() {
 
         const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`http://localhost:3001/api/requests/${id}/status`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/requests/${id}/status`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

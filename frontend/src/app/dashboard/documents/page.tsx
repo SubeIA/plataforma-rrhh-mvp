@@ -10,7 +10,7 @@ export default function MyDocumentsPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const res = await fetch('http://localhost:3001/api/documents/my-documents', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/documents/my-documents`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -29,7 +29,7 @@ export default function MyDocumentsPage() {
         if (!confirm("¿Desea firmar digitalmente este documento?")) return;
         const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`http://localhost:3001/api/documents/${docId}/sign`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/documents/${docId}/sign`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });

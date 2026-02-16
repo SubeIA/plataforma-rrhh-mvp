@@ -18,7 +18,7 @@ export default function RequestsPage() {
         if (!token) return;
         try {
             // mode=my-requests ensures we get own requests even if we are HR
-            const res = await fetch('http://localhost:3001/api/requests?mode=my-requests', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/requests?mode=my-requests`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -38,7 +38,7 @@ export default function RequestsPage() {
         setIsSubmitting(true);
         const token = localStorage.getItem('token');
         try {
-            const res = await fetch('http://localhost:3001/api/requests', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/requests`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

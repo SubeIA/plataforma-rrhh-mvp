@@ -17,7 +17,7 @@ export default function AttendancePage() {
         if (!token) return;
 
         try {
-            const res = await fetch('http://localhost:3001/api/attendance/history', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance/history`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -37,7 +37,7 @@ export default function AttendancePage() {
         const token = localStorage.getItem('token');
 
         try {
-            const res = await fetch('http://localhost:3001/api/attendance', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
