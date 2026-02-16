@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -15,11 +16,13 @@ app.use(cors());
 app.use(express.json());
 
 // --- AUTHENTICATION ---
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
 
-    db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const users = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+        const user = users[0];
+
         if (!user) return res.status(400).json({ error: 'User not found' });
 
         const validPassword = bcrypt.compareSync(password, user.password);
@@ -27,20 +30,22 @@ app.post('/api/auth/login', (req, res) => {
 
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
     const { email, password } = req.body;
     const salt = bcrypt.genSaltSync(10);
     const hash = bcrypt.hashSync(password, salt);
 
-    const stmt = db.prepare("INSERT INTO users (email, password) VALUES (?, ?)");
-    stmt.run(email, hash, function (err) {
-        if (err) return res.status(500).json({ error: 'Email already exists' });
-        res.json({ id: this.lastID, email });
-    });
-    stmt.finalize();
+    try {
+        const result = await db.run("INSERT INTO users (email, password) VALUES (?, ?)", [email, hash]);
+        res.json({ id: result.id, email });
+    } catch (err) {
+        res.status(500).json({ error: 'Email already exists' });
+    }
 });
 
 
@@ -74,184 +79,180 @@ function getDistanceInMeters(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
-app.post('/api/attendance', verifyToken, (req, res) => {
+app.post('/api/attendance', verifyToken, async (req, res) => {
     const { type, lat, lng, accuracy } = req.body; // 'IN' or 'OUT', plus coords
     const userId = req.user.id;
 
-    // Geolocation Validation (Phase 6)
-    if (lat && lng) {
-        db.all("SELECT * FROM offices", [], (err, offices) => {
-            if (err) return res.status(500).json({ error: err.message });
+    try {
+        // Geolocation Validation (Phase 6)
+        if (lat && lng) {
+            const offices = await db.query("SELECT * FROM offices");
 
             // If offices exist, check if user is within range of ANY office
             if (offices.length > 0) {
                 let withinRange = false;
-                let nearbyOffice = null;
 
                 for (const office of offices) {
                     const distance = getDistanceInMeters(lat, lng, office.lat, office.lng);
-                    // Add accuracy buffer? For now, straight radius
                     if (distance <= office.radius) {
                         withinRange = true;
-                        nearbyOffice = office.name;
                         break;
                     }
                 }
 
                 if (!withinRange) {
-                    // Strict mode: Reject
-                    // return res.status(403).json({ error: 'You are outside the allowed office range.' });
-
-                    // Audit mode: Allow but flag (for now, just log or add valid flag column later)
                     console.warn(`User ${userId} punched outside range. Coords: ${lat},${lng}`);
                 }
             }
-
-            // Proceed to insert
-            insertAttendance(userId, type, lat, lng, accuracy, res);
-        });
-    } else {
-        // No coords provided (Web/Desktop without GPS?) -> Allow or Block?
-        // Phase 6 requirement: "Capturar GPS". If missing, maybe block?
-        // For existing web usage on localhost, strictly blocking might break testing if no mock.
-        // We will proceed but log warning.
-        insertAttendance(userId, type, null, null, null, res);
+            await insertAttendance(userId, type, lat, lng, accuracy, res);
+        } else {
+            await insertAttendance(userId, type, null, null, null, res);
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
-function insertAttendance(userId, type, lat, lng, accuracy, res) {
-    const stmt = db.prepare("INSERT INTO attendance (userId, type, lat, lng, accuracy) VALUES (?, ?, ?, ?, ?)");
-    stmt.run(userId, type, lat, lng, accuracy, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, type, timestamp: new Date() });
-    });
-    stmt.finalize();
+async function insertAttendance(userId, type, lat, lng, accuracy, res) {
+    try {
+        const result = await db.run("INSERT INTO attendance (userId, type, lat, lng, accuracy) VALUES (?, ?, ?, ?, ?)", [userId, type, lat, lng, accuracy]);
+        res.json({ id: result.id, type, timestamp: new Date() });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 }
 
 // --- ATTENDANCE MANAGEMENT ---
 
 // GET Attendance (with filters)
-app.get('/api/attendance', verifyToken, (req, res) => {
+app.get('/api/attendance', verifyToken, async (req, res) => {
     // If not admin/hr, only show own attendance
     const isIdsAllowed = req.user.role === 'admin' || req.user.role === 'hr';
     const { userId, startDate, endDate } = req.query;
 
-    let sql = `
-        SELECT a.id, a.type, a.timestamp, u.email, p.fullName, p.department 
-        FROM attendance a 
-        JOIN users u ON a.userId = u.id 
-        LEFT JOIN profiles p ON u.id = p.userId
-        WHERE 1=1
-    `;
-    const params = [];
+    try {
+        let sql = `
+            SELECT a.id, a.type, a.timestamp, u.email, p.fullName, p.department 
+            FROM attendance a 
+            JOIN users u ON a.userId = u.id 
+            LEFT JOIN profiles p ON u.id = p.userId
+            WHERE 1=1
+        `;
+        const params = [];
 
-    if (!isIdsAllowed) {
-        sql += " AND a.userId = ?";
-        params.push(req.user.id);
-    } else if (userId) {
-        sql += " AND a.userId = ?";
-        params.push(userId);
-    }
+        if (!isIdsAllowed) {
+            sql += " AND a.userId = ?";
+            params.push(req.user.id);
+        } else if (userId) {
+            sql += " AND a.userId = ?";
+            params.push(userId);
+        }
 
-    if (startDate) {
-        sql += " AND a.timestamp >= ?";
-        params.push(startDate);
-    }
-    if (endDate) {
-        sql += " AND a.timestamp <= ?";
-        params.push(endDate);
-    }
+        if (startDate) {
+            sql += " AND a.timestamp >= ?";
+            params.push(startDate);
+        }
+        if (endDate) {
+            sql += " AND a.timestamp <= ?";
+            params.push(endDate);
+        }
 
-    sql += " ORDER BY a.timestamp DESC LIMIT 100";
+        sql += " ORDER BY a.timestamp DESC LIMIT 100";
 
-    db.all(sql, params, (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+        const rows = await db.query(sql, params);
         res.json(rows);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // MANUAL ATTENDANCE ENTRY (HR/Admin)
-app.post('/api/attendance/manual', verifyToken, (req, res) => {
+app.post('/api/attendance/manual', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') return res.sendStatus(403);
     const { userId, type, timestamp } = req.body;
 
-    const stmt = db.prepare("INSERT INTO attendance (userId, type, timestamp) VALUES (?, ?, ?)");
-    stmt.run(userId, type, timestamp, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, message: 'Record added manually' });
-    });
-    stmt.finalize();
+    try {
+        const result = await db.run("INSERT INTO attendance (userId, type, timestamp) VALUES (?, ?, ?)", [userId, type, timestamp]);
+        res.json({ id: result.id, message: 'Record added manually' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // CORRECT ATTENDANCE (HR/Admin)
-app.put('/api/attendance/:id', verifyToken, (req, res) => {
+app.put('/api/attendance/:id', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') return res.sendStatus(403);
     const { id } = req.params;
-    const { type, timestamp } = req.body; // In a real app, adding 'reason' column would be good
+    const { type, timestamp } = req.body;
 
-    const stmt = db.prepare("UPDATE attendance SET type = ?, timestamp = ? WHERE id = ?");
-    stmt.run(type, timestamp, id, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        await db.run("UPDATE attendance SET type = ?, timestamp = ? WHERE id = ?", [type, timestamp, id]);
         res.json({ message: 'Record updated successfully' });
-    });
-    stmt.finalize();
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/attendance/history', verifyToken, (req, res) => {
+app.get('/api/attendance/history', verifyToken, async (req, res) => {
     const userId = req.user.id;
-    db.all("SELECT * FROM attendance WHERE userId = ? ORDER BY timestamp DESC LIMIT 10", [userId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const rows = await db.query("SELECT * FROM attendance WHERE userId = ? ORDER BY timestamp DESC LIMIT 10", [userId]);
         res.json(rows);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- DOCUMENT MANAGEMENT ---
 
 // Upload Document (HR/Admin)
-app.post('/api/documents/upload', verifyToken, (req, res) => {
+app.post('/api/documents/upload', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') return res.sendStatus(403);
-    const { userId, name, url } = req.body; // In real app, handle file upload with multer
+    const { userId, name, url } = req.body;
 
-    const stmt = db.prepare("INSERT INTO documents (userId, name, url) VALUES (?, ?, ?)");
-    stmt.run(userId, name, url, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, message: 'Document uploaded successfully' });
-    });
-    stmt.finalize();
+    try {
+        const result = await db.run("INSERT INTO documents (userId, name, url) VALUES (?, ?, ?)", [userId, name, url]);
+        res.json({ id: result.id, message: 'Document uploaded successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Get My Documents (Employee)
-app.get('/api/documents/my-documents', verifyToken, (req, res) => {
+app.get('/api/documents/my-documents', verifyToken, async (req, res) => {
     const userId = req.user.id;
-    db.all("SELECT * FROM documents WHERE userId = ? ORDER BY createdAt DESC", [userId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const rows = await db.query("SELECT * FROM documents WHERE userId = ? ORDER BY createdAt DESC", [userId]);
         res.json(rows);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Sign Document (Employee)
-app.post('/api/documents/:id/sign', verifyToken, (req, res) => {
+app.post('/api/documents/:id/sign', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const docId = req.params.id;
 
-    // Verify ownership
-    db.get("SELECT * FROM documents WHERE id = ? AND userId = ?", [docId, userId], (err, doc) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const docs = await db.query("SELECT * FROM documents WHERE id = ? AND userId = ?", [docId, userId]);
+        const doc = docs[0];
+
         if (!doc) return res.status(404).json({ error: 'Document not found' });
         if (doc.status === 'SIGNED') return res.status(400).json({ error: 'Document already signed' });
 
         const signedAt = new Date().toISOString();
-        db.run("UPDATE documents SET status = 'SIGNED', signedAt = ? WHERE id = ?", [signedAt, docId], function (err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: 'Document signed successfully', signedAt });
-        });
-    });
+        await db.run("UPDATE documents SET status = 'SIGNED', signedAt = ? WHERE id = ?", [signedAt, docId]);
+        res.json({ message: 'Document signed successfully', signedAt });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- ADMIN USER MANAGEMENT ---
 
 // GET All Users with Profile
-app.get('/api/users', verifyToken, (req, res) => {
+app.get('/api/users', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') return res.sendStatus(403);
     const sql = `
         SELECT u.id, u.email, u.role, 
@@ -259,120 +260,99 @@ app.get('/api/users', verifyToken, (req, res) => {
         FROM users u
         LEFT JOIN profiles p ON u.id = p.userId
     `;
-    db.all(sql, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const rows = await db.query(sql);
         res.json(rows);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // CREATE User & Profile
-app.post('/api/users', verifyToken, (req, res) => {
+app.post('/api/users', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
     const { email, password, role, fullName, phone, address, department, position, startDate } = req.body;
 
     const salt = bcrypt.genSaltSync(10);
     const hash = bcrypt.hashSync(password, salt);
 
-    // Transaction-like approach (SQLite serialized)
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION");
+    try {
+        // Note: Transactions are hard without a proper client object in pg/sqlite abstraction.
+        // We will execute sequentially.
+        const userResult = await db.run("INSERT INTO users (email, password, role) VALUES (?, ?, ?)", [email, hash, role]);
+        const userId = userResult.id;
 
-        const stmtUser = db.prepare("INSERT INTO users (email, password, role) VALUES (?, ?, ?)");
-        stmtUser.run(email, hash, role, function (err) {
-            if (err) {
-                db.run("ROLLBACK");
-                return res.status(500).json({ error: 'Email already exists or error creating user' });
-            }
-            const userId = this.lastID;
+        await db.run(`
+            INSERT INTO profiles (userId, fullName, phone, address, department, position, startDate)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [userId, fullName, phone, address, department, position, startDate]);
 
-            const stmtProfile = db.prepare(`
-                INSERT INTO profiles (userId, fullName, phone, address, department, position, startDate)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `);
-            stmtProfile.run(userId, fullName, phone, address, department, position, startDate, function (err) {
-                if (err) {
-                    db.run("ROLLBACK");
-                    return res.status(500).json({ error: 'Error creating profile' });
-                }
-                db.run("COMMIT");
-                res.json({ id: userId, email, role, fullName, department, position });
-            });
-            stmtProfile.finalize();
-        });
-        stmtUser.finalize();
-    });
+        res.json({ id: userId, email, role, fullName, department, position });
+    } catch (err) {
+        res.status(500).json({ error: 'Error creating user/profile. Email might exist.' });
+    }
 });
 
 // UPDATE User & Profile
-app.put('/api/users/:id', verifyToken, (req, res) => {
+app.put('/api/users/:id', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
     const { id } = req.params;
     const { email, role, fullName, phone, address, department, position, startDate } = req.body;
 
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION");
-
+    try {
         // Update User
-        const sqlUser = "UPDATE users SET email = ?, role = ? WHERE id = ?";
-        db.run(sqlUser, [email, role, id], function (err) {
-            if (err) {
-                db.run("ROLLBACK");
-                return res.status(500).json({ error: err.message });
-            }
+        await db.run("UPDATE users SET email = ?, role = ? WHERE id = ?", [email, role, id]);
 
-            // Upsert Profile (Update if exists, Insert if not)
-            const sqlProfile = `
-                INSERT INTO profiles (userId, fullName, phone, address, department, position, startDate)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(userId) DO UPDATE SET
-                fullName = excluded.fullName,
-                phone = excluded.phone,
-                address = excluded.address,
-                department = excluded.department,
-                position = excluded.position,
-                startDate = excluded.startDate
-            `;
+        // Upsert Profile
+        const sqlProfile = `
+            INSERT INTO profiles (userId, fullName, phone, address, department, position, startDate)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(userId) DO UPDATE SET
+            fullName = excluded.fullName,
+            phone = excluded.phone,
+            address = excluded.address,
+            department = excluded.department,
+            position = excluded.position,
+            startDate = excluded.startDate
+        `;
+        await db.run(sqlProfile, [id, fullName, phone, address, department, position, startDate]);
 
-            db.run(sqlProfile, [id, fullName, phone, address, department, position, startDate], function (err) {
-                if (err) {
-                    db.run("ROLLBACK");
-                    return res.status(500).json({ error: 'Error updating profile' });
-                }
-                db.run("COMMIT");
-                res.json({ message: 'User updated successfully' });
-            });
-        });
-    });
+        res.json({ message: 'User updated successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // DELETE User
-app.delete('/api/users/:id', verifyToken, (req, res) => {
+app.delete('/api/users/:id', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
     const { id } = req.params;
 
-    db.run("DELETE FROM users WHERE id = ?", id, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        await db.run("DELETE FROM users WHERE id = ?", [id]);
         res.json({ message: 'User deleted' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- REQUESTS MANAGEMENT (PHASE 4) ---
 
 // Create Request (Employee)
-app.post('/api/requests', verifyToken, (req, res) => {
+app.post('/api/requests', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { type, startDate, endDate, reason } = req.body;
 
-    const stmt = db.prepare("INSERT INTO requests (userId, type, startDate, endDate, reason) VALUES (?, ?, ?, ?, ?)");
-    stmt.run(userId, type, startDate, endDate, reason, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, message: 'Request submitted successfully' });
-    });
-    stmt.finalize();
+    try {
+        const result = await db.run("INSERT INTO requests (userId, type, startDate, endDate, reason) VALUES (?, ?, ?, ?, ?)", [userId, type, startDate, endDate, reason]);
+        res.json({ id: result.id, message: 'Request submitted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Get Requests (All for HR/Admin, filtered for User)
-app.get('/api/requests', verifyToken, (req, res) => {
+app.get('/api/requests', verifyToken, async (req, res) => {
     const isHr = req.user.role === 'admin' || req.user.role === 'hr';
     const { mode } = req.query; // 'my-requests' to force own list even if HR
 
@@ -391,65 +371,69 @@ app.get('/api/requests', verifyToken, (req, res) => {
 
     sql += " ORDER BY r.createdAt DESC";
 
-    db.all(sql, params, (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const rows = await db.query(sql, params);
         res.json(rows);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Update Request Status (HR/Admin)
-app.put('/api/requests/:id/status', verifyToken, (req, res) => {
+app.put('/api/requests/:id/status', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') return res.sendStatus(403);
     const { id } = req.params;
-    const { status, response } = req.body; // text response from HR
+    const { status, response } = req.body;
 
-    const stmt = db.prepare("UPDATE requests SET status = ?, response = ? WHERE id = ?");
-    stmt.run(status, response, id, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        await db.run("UPDATE requests SET status = ?, response = ? WHERE id = ?", [status, response, id]);
         res.json({ message: 'Request updated successfully' });
-    });
-    stmt.finalize();
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- SHIFT MANAGEMENT (PHASE 5) ---
 
 // Create Shift
-app.post('/api/shifts', verifyToken, (req, res) => {
+app.post('/api/shifts', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
     const { name, startTime, endTime, toleranceMinutes } = req.body;
 
-    const stmt = db.prepare("INSERT INTO shifts (name, startTime, endTime, toleranceMinutes) VALUES (?, ?, ?, ?)");
-    stmt.run(name, startTime, endTime, toleranceMinutes, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, message: 'Shift created successfully' });
-    });
-    stmt.finalize();
+    try {
+        const result = await db.run("INSERT INTO shifts (name, startTime, endTime, toleranceMinutes) VALUES (?, ?, ?, ?)", [name, startTime, endTime, toleranceMinutes]);
+        res.json({ id: result.id, message: 'Shift created successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Get All Shifts
-app.get('/api/shifts', verifyToken, (req, res) => {
+app.get('/api/shifts', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') return res.sendStatus(403);
-    db.all("SELECT * FROM shifts", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const rows = await db.query("SELECT * FROM shifts");
         res.json(rows);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Assign Shift to User
-app.post('/api/shifts/assign', verifyToken, (req, res) => {
+app.post('/api/shifts/assign', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') return res.sendStatus(403);
     const { userId, shiftId, startDate, endDate } = req.body;
 
-    const stmt = db.prepare("INSERT INTO user_shifts (userId, shiftId, startDate, endDate) VALUES (?, ?, ?, ?)");
-    stmt.run(userId, shiftId, startDate, endDate, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, message: 'Shift assigned successfully' });
-    });
-    stmt.finalize();
+    try {
+        const result = await db.run("INSERT INTO user_shifts (userId, shiftId, startDate, endDate) VALUES (?, ?, ?, ?)", [userId, shiftId, startDate, endDate]);
+        res.json({ id: result.id, message: 'Shift assigned successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Get User's Current Shift
-app.get('/api/users/:id/shift', verifyToken, (req, res) => {
+app.get('/api/users/:id/shift', verifyToken, async (req, res) => {
     const { id } = req.params;
     // Basic logic: get the latest assignment that is active
     const today = new Date().toISOString().split('T')[0];
@@ -463,24 +447,28 @@ app.get('/api/users/:id/shift', verifyToken, (req, res) => {
         ORDER BY us.startDate DESC LIMIT 1
     `;
 
-    db.get(sql, [id, today], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(row || null);
-    });
+    try {
+        const rows = await db.query(sql, [id, today]);
+        res.json(rows[0] || null);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/attendance/all', verifyToken, (req, res) => {
+app.get('/api/attendance/all', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin') return res.sendStatus(403);
-    db.all(`
-        SELECT a.id, a.type, a.timestamp, u.email 
-        FROM attendance a 
-        JOIN users u ON a.userId = u.id 
-        ORDER BY a.timestamp DESC 
-        LIMIT 50
-    `, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const rows = await db.query(`
+            SELECT a.id, a.type, a.timestamp, u.email 
+            FROM attendance a 
+            JOIN users u ON a.userId = u.id 
+            ORDER BY a.timestamp DESC 
+            LIMIT 50
+        `);
         res.json(rows);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- REPORTING (PHASE 7) ---
@@ -492,7 +480,7 @@ function getHoursDifference(date1, date2) {
 }
 
 // Generate Payroll Report (JSON)
-app.get('/api/reports/payroll', verifyToken, (req, res) => {
+app.get('/api/reports/payroll', verifyToken, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') return res.sendStatus(403);
     const { startDate, endDate } = req.query;
 
@@ -512,8 +500,8 @@ app.get('/api/reports/payroll', verifyToken, (req, res) => {
     const queryEndDate = endDate + 'T23:59:59';
     const queryStartDate = startDate + 'T00:00:00';
 
-    db.all(sql, [queryStartDate, queryEndDate], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const rows = await db.query(sql, [queryStartDate, queryEndDate]);
 
         // Process rows to calculate hours
         const report = {};
@@ -544,8 +532,7 @@ app.get('/api/reports/payroll', verifyToken, (req, res) => {
 
                 if (record.type === 'IN') {
                     if (currentIn) {
-                        // Missing OUT for previous IN, ignore or flag? 
-                        // For MVP, we just reset start time to latest IN
+                        // Missing OUT
                     }
                     currentIn = time;
                 } else if (record.type === 'OUT') {
@@ -562,12 +549,14 @@ app.get('/api/reports/payroll', verifyToken, (req, res) => {
         });
 
         res.json(Object.values(report));
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Health Check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', database: 'SQLite', timestamp: new Date().toISOString() });
+    res.json({ status: 'OK', database: process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite', timestamp: new Date().toISOString() });
 });
 
 app.listen(port, () => {
