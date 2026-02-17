@@ -19,7 +19,7 @@ export default function DashboardPage() {
         if (!token) return;
 
         try {
-            const res = await fetch('http://localhost:3001/api/attendance/history', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance/history`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {

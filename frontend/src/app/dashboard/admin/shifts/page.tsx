@@ -24,8 +24,8 @@ export default function ShiftManagementPage() {
 
         try {
             const [shiftsRes, usersRes] = await Promise.all([
-                fetch('http://localhost:3001/api/shifts', { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch('http://localhost:3001/api/users', { headers: { 'Authorization': `Bearer ${token}` } })
+                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/shifts`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users`, { headers: { 'Authorization': `Bearer ${token}` } })
             ]);
 
             if (shiftsRes.ok) setShifts(await shiftsRes.json());

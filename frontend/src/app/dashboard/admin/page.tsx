@@ -28,7 +28,7 @@ export default function AdminPage() {
         const token = localStorage.getItem('token');
         if (!token) return;
         try {
-            const res = await fetch('http://localhost:3001/api/attendance/all', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance/all`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -60,7 +60,7 @@ export default function AdminPage() {
         if (!confirm("¿Estás seguro de que quieres eliminar este usuario?")) return;
         const token = localStorage.getItem('token');
         try {
-            await fetch(`http://localhost:3001/api/users/${id}`, {
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -73,8 +73,8 @@ export default function AdminPage() {
     const handleSaveUser = async (formData: any) => {
         const token = localStorage.getItem('token');
         const url = editingUser
-            ? `http://localhost:3001/api/users/${editingUser.id}`
-            : 'http://localhost:3001/api/users';
+            ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users/${editingUser.id}`
+            : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users`;
         const method = editingUser ? 'PUT' : 'POST';
 
         try {
