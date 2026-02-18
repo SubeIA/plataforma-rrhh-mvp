@@ -8,7 +8,7 @@ const config = {
     isProduction: process.env.NODE_ENV === 'production',
     corsOrigins: process.env.CORS_ORIGINS
         ? process.env.CORS_ORIGINS.split(',')
-        : ['http://localhost:3000', 'http://localhost:3001', 'https://plataforma-rrhh-mvp.vercel.app'],
+        : ['http://localhost:3000', 'http://localhost:3001', 'https://plataforma-rrhh-mvp.vercel.app', 'https://www.plataforma-rrhh-mvp.vercel.app'],
 };
 
 // Validate required env vars

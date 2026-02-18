@@ -208,4 +208,4 @@ async function initializeTables() {
     }
 }
 
-export default { query, get, run, close };
+export default { query, get, run, close, initializeTables };

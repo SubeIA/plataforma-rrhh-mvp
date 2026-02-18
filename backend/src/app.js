@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import config from './config/env.js';
 import errorHandler from './middleware/errorHandler.js';
+import db from './db.js';
 
 // Route imports
 import authRoutes from './routes/auth.js';
@@ -53,6 +54,16 @@ app.use(morgan(config.isProduction ? 'combined' : 'dev'));
 
 // ─── Body Parsing ───────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
+
+app.get('/api/setup-db-force', async (req, res) => {
+    try {
+        await db.initializeTables();
+        res.json({ message: 'Database initialized successfully' });
+    } catch (err) {
+        console.error('Manual DB Init Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // ─── Routes ─────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
