@@ -6,7 +6,10 @@ const server = app.listen(config.port, () => {
     console.log(`🚀 Server running on port ${config.port}`);
     console.log(`📦 Database: ${config.databaseUrl ? 'PostgreSQL' : 'SQLite'}`);
     console.log(`🌍 Environment: ${config.isProduction ? 'production' : 'development'}`);
-    console.log(`🔓 Allowed CORS Origins: ${config.corsOrigins.join(', ')}`);
+    const origins logging = Array.isArray(config.corsOrigins)
+        ? config.corsOrigins.join(', ')
+        : config.corsOrigins;
+    console.log(`🔓 Allowed CORS Origins: ${logging}`);
 });
 
 // ─── Graceful Shutdown ──────────────────────────────────────
