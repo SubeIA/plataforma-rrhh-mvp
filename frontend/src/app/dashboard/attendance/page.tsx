@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function AttendancePage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
-    const [history, setHistory] = useState([]);
+    const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
 
@@ -20,10 +20,28 @@ export default function AttendancePage() {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance/history`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+
+            if (!res.ok) {
+                if (res.status === 401) {
+                    setMessage("Sesión expirada. Por favor, vuelve a iniciar sesión.");
+                } else {
+                    setMessage("Error al obtener el historial.");
+                }
+                setHistory([]);
+                return;
+            }
+
             const data = await res.json();
-            setHistory(data);
+            if (Array.isArray(data)) {
+                setHistory(data);
+            } else {
+                console.error("Expected array for history, got:", data);
+                setHistory([]);
+            }
         } catch (error) {
             console.error(error);
+            setMessage("Error de conexión al obtener el historial.");
+            setHistory([]);
         }
     };
 

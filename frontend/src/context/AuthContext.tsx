@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             setUser(data.user);
-            router.push('/dashboard');
+            router.push('/selection');
             return true;
         } catch (error) {
             throw error;
@@ -58,12 +58,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
-        router.push('/login');
+        router.push('/');
     };
 
     const protectRoute = () => {
         if (!loading && !user) {
-            router.push('/login');
+            router.push('/');
         }
     };
 
