@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { Clock, MapPin, CheckCircle2, History as HistoryIcon, LogIn, LogOut } from "lucide-react";
 
 export default function DashboardPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
@@ -33,7 +34,6 @@ export default function DashboardPage() {
 
     useEffect(() => {
         fetchHistory();
-        // Request Geo on load
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -46,11 +46,11 @@ export default function DashboardPage() {
                 },
                 (error) => {
                     console.error("Geo Error:", error);
-                    setGeoError("No se pudo obtener ubicación. Asegúrate de permitir el acceso.");
+                    setGeoError("No se pudo obtener ubicación. Por favor, activa el GPS.");
                 }
             );
         } else {
-            setGeoError("Geolocalización no soportada en este navegador.");
+            setGeoError("Geolocalización no soportada.");
         }
     }, []);
 
@@ -79,81 +79,111 @@ export default function DashboardPage() {
             const data = await res.json();
 
             if (res.ok) {
-                setMessage(type === 'IN' ? "Entrada registrada" : "Salida registrada");
+                setMessage(type === 'IN' ? "✅ Entrada registrada con éxito" : "✅ Salida registrada con éxito");
                 fetchHistory();
             } else {
-                setMessage(`Error: ${data.error || 'Al registrar'}`);
+                setMessage(`❌ Error: ${data.error || 'No se pudo registrar'}`);
             }
         } catch (error) {
             console.error(error);
-            setMessage("Error de conexión");
+            setMessage("❌ Error de conexión con el servidor");
         } finally {
             setLoading(false);
         }
     };
 
-    if (authLoading) return <p className="p-8">Cargando...</p>;
+    if (authLoading) return (
+        <div className="min-h-screen flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        </div>
+    );
 
     return (
-        <div className="p-8 max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold mb-6">Mi Asistencia</h1>
-
-            {user && <p className="mb-4">Hola, <span className="font-semibold">{user.email}</span></p>}
-
-            {/* Geo Info */}
-            <div className="mb-6 p-4 bg-blue-50 rounded border border-blue-100 text-sm">
-                <p className="font-semibold">Estado GPS:</p>
-                {location ? (
-                    <p className="text-green-700">
-                        Ubicación detectada (Lat: {location.lat.toFixed(4)}, Lng: {location.lng.toFixed(4)}, Precisión: {Math.round(location.accuracy)}m)
+        <div className="p-6 max-w-4xl mx-auto animate-in">
+            <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">Mi Asistencia</h1>
+                    <p className="text-gray-500 mt-2 flex items-center gap-2">
+                        <Clock size={16} />
+                        Bienvenido de vuelta, <span className="font-semibold text-indigo-600 underline decoration-indigo-200">{user?.email}</span>
                     </p>
-                ) : (
-                    <p className="text-yellow-700">
-                        {geoError || "Obteniendo ubicación..."}
-                    </p>
-                )}
+                </div>
             </div>
 
-            <div className="flex gap-4 mb-8">
+            {/* GPS Status Component */}
+            <div className={`mb-8 p-5 rounded-2xl border transition-all duration-300 flex items-center gap-4 ${location ? 'bg-emerald-50/50 border-emerald-100 text-emerald-800' : 'bg-amber-50/50 border-amber-100 text-amber-800'}`}>
+                <div className={`p-3 rounded-full ${location ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+                    <MapPin size={24} className={location ? 'text-emerald-600' : 'text-amber-600'} />
+                </div>
+                <div>
+                    <p className="font-bold text-lg">Estado de Ubicación</p>
+                    {location ? (
+                        <p className="text-sm opacity-90">
+                            GPS Detectado: {location.lat.toFixed(4)}, {location.lng.toFixed(4)} (±{Math.round(location.accuracy)}m)
+                        </p>
+                    ) : (
+                        <p className="text-sm opacity-90">{geoError || "Detectando ubicación precisa..."}</p>
+                    )}
+                </div>
+                {location && <CheckCircle2 className="ml-auto text-emerald-500" size={20} />}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
                 <button
                     onClick={() => handleAttendance('IN')}
-                    disabled={loading} // removed !location check to allow testing/fallback
-                    className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={loading}
+                    className="premium-button group flex items-center justify-center gap-3 bg-indigo-600 text-white p-6 rounded-2xl font-bold text-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50"
                 >
+                    <LogIn className="group-hover:translate-x-1 transition-transform" />
                     Marcar Entrada
                 </button>
                 <button
                     onClick={() => handleAttendance('OUT')}
                     disabled={loading}
-                    className="flex-1 bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="premium-button group flex items-center justify-center gap-3 bg-white text-gray-900 border border-gray-200 p-6 rounded-2xl font-bold text-xl shadow-xl hover:bg-gray-50 disabled:opacity-50"
                 >
+                    <LogOut className="text-rose-500 group-hover:-translate-x-1 transition-transform" />
                     Marcar Salida
                 </button>
             </div>
 
-            {message && <p className={`text-center mb-4 font-medium ${message.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>{message}</p>}
+            {message && (
+                <div className={`mb-10 p-4 rounded-xl text-center font-semibold animate-in ${message.includes('❌') ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
+                    {message}
+                </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold mb-4">Historial Reciente</h2>
-                <div className="space-y-3">
+            <div className="glass-card rounded-3xl p-8">
+                <div className="flex items-center gap-3 mb-6">
+                    <HistoryIcon className="text-indigo-600" />
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Historial Reciente</h2>
+                </div>
+                <div className="space-y-4">
                     {history.map((record: any) => (
-                        <div key={record.id} className="flex justify-between border-b pb-2">
-                            <div>
-                                <span className={record.type === 'IN' ? "text-green-600 font-bold block" : "text-red-600 font-bold block"}>
-                                    {record.type === 'IN' ? 'ENTRADA' : 'SALIDA'}
-                                </span>
-                                {record.lat && (
-                                    <span className="text-xs text-gray-400">
-                                        GPS: {record.lat.toFixed(4)}, {record.lng.toFixed(4)}
+                        <div key={record.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-50/50 hover:bg-white transition-colors border border-transparent hover:border-indigo-100 group">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-2 h-10 rounded-full ${record.type === 'IN' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                <div>
+                                    <span className={`text-lg font-bold block ${record.type === 'IN' ? "text-emerald-700" : "text-rose-700"}`}>
+                                        {record.type === 'IN' ? 'ENTRADA' : 'SALIDA'}
                                     </span>
-                                )}
+                                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                                        <MapPin size={12} /> {record.lat?.toFixed(4)}, {record.lng?.toFixed(4)}
+                                    </span>
+                                </div>
                             </div>
-                            <span className="text-gray-600">
-                                {new Date(record.timestamp).toLocaleString()}
-                            </span>
+                            <div className="text-right">
+                                <p className="font-medium text-gray-700">{new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                <p className="text-xs text-gray-400">{new Date(record.timestamp).toLocaleDateString()}</p>
+                            </div>
                         </div>
                     ))}
-                    {history.length === 0 && <p className="text-gray-500 text-center">No hay registros recientes.</p>}
+                    {history.length === 0 && (
+                        <div className="text-center py-10">
+                            <HistoryIcon size={48} className="mx-auto text-gray-200 mb-4" />
+                            <p className="text-gray-500 italic">Aún no hay marcas registradas para hoy.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
