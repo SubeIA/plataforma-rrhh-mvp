@@ -138,21 +138,27 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
                 <button
                     onClick={() => handleAttendance('IN')}
-                    disabled={loading}
-                    className="premium-button group flex items-center justify-center gap-3 bg-indigo-600 text-white p-6 rounded-2xl font-bold text-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50"
+                    disabled={loading || !location}
+                    className="premium-button group flex items-center justify-center gap-3 bg-indigo-600 text-white p-6 rounded-2xl font-bold text-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <LogIn className="group-hover:translate-x-1 transition-transform" />
                     Marcar Entrada
                 </button>
                 <button
                     onClick={() => handleAttendance('OUT')}
-                    disabled={loading}
-                    className="premium-button group flex items-center justify-center gap-3 bg-white text-gray-900 border border-gray-200 p-6 rounded-2xl font-bold text-xl shadow-xl hover:bg-gray-50 disabled:opacity-50"
+                    disabled={loading || !location}
+                    className="premium-button group flex items-center justify-center gap-3 bg-white text-gray-900 border border-gray-200 p-6 rounded-2xl font-bold text-xl shadow-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <LogOut className="text-rose-500 group-hover:-translate-x-1 transition-transform" />
                     Marcar Salida
                 </button>
             </div>
+
+            {!location && !loading && (
+                <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-center text-sm font-medium animate-pulse">
+                    ⚠️ Esperando señal de GPS para habilitar el registro...
+                </div>
+            )}
 
             {message && (
                 <div className={`mb-10 p-4 rounded-xl text-center font-semibold animate-in ${message.includes('❌') ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import UserModal from "./components/UserModal";
-import { Users, History, UserPlus, Edit3, Trash2, Shield, LayoutGrid, List } from "lucide-react";
+import { Users, History, UserPlus, Edit3, Trash2, Shield, LayoutGrid, List, MapPin } from "lucide-react";
 
 export default function AdminPage() {
     const { user, protectRoute, loading } = useAuth();
@@ -243,13 +243,29 @@ export default function AdminPage() {
                             <div key={rec.id} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-indigo-100 transition-all">
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="font-bold text-gray-800 text-sm truncate max-w-[150px]">{rec.email}</div>
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${rec.type === 'IN' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                        {rec.type === 'IN' ? 'ENTRADA' : 'SALIDA'}
-                                    </span>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${rec.type === 'IN' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                            {rec.type === 'IN' ? 'ENTRADA' : 'SALIDA'}
+                                        </span>
+                                        {(!rec.lat || !rec.lng) ? (
+                                            <span className="text-[9px] font-bold text-rose-500 flex items-center gap-0.5 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
+                                                <MapPin size={8} /> Sin GPS
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                                                <MapPin size={8} /> GPS OK
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex justify-between items-end">
                                     <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
                                         {new Date(rec.timestamp).toLocaleDateString()}
+                                        {rec.accuracy && (
+                                            <span className="ml-2 lowercase font-normal italic">
+                                                (±{Math.round(rec.accuracy)}m)
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="text-sm font-bold text-indigo-600">
                                         {new Date(rec.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -257,6 +273,7 @@ export default function AdminPage() {
                                 </div>
                             </div>
                         ))}
+
                         {attendance.length === 0 && (
                             <div className="text-center py-20">
                                 <History size={48} className="mx-auto text-gray-100 mb-4" />

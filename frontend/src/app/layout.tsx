@@ -10,6 +10,8 @@ export const metadata: Metadata = {
     description: "Plataforma de gestión de asistencia y RRHH",
 };
 
+import ErrorBoundary from "@/components/ErrorBoundary";
+
 export default function RootLayout({
     children,
 }: Readonly<{
@@ -18,7 +20,9 @@ export default function RootLayout({
     return (
         <html lang="es">
             <body className={inter.className}>
-                <AuthProvider>{children}</AuthProvider>
+                <ErrorBoundary>
+                    <AuthProvider>{children}</AuthProvider>
+                </ErrorBoundary>
             </body>
         </html>
     );
