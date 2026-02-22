@@ -6,8 +6,8 @@ import { Users, History, UserPlus, Edit3, Trash2, Shield, LayoutGrid, List } fro
 
 export default function AdminPage() {
     const { user, protectRoute, loading } = useAuth();
-    const [users, setUsers] = useState([]);
-    const [attendance, setAttendance] = useState([]);
+    const [users, setUsers] = useState<any[]>([]);
+    const [attendance, setAttendance] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
