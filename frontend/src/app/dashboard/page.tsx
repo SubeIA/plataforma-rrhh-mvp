@@ -5,7 +5,7 @@ import { Clock, MapPin, CheckCircle2, History as HistoryIcon, LogIn, LogOut } fr
 
 export default function DashboardPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
-    const [history, setHistory] = useState([]);
+    const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
     const [location, setLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -25,7 +25,14 @@ export default function DashboardPage() {
             });
             if (res.ok) {
                 const data = await res.json();
-                setHistory(data);
+                if (Array.isArray(data)) {
+                    setHistory(data);
+                } else {
+                    console.warn("History data is not an array:", data);
+                    setHistory([]);
+                }
+            } else {
+                setHistory([]);
             }
         } catch (error) {
             console.error(error);

@@ -20,7 +20,11 @@ export default function AdminPage() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
-            setUsers(data);
+            if (Array.isArray(data)) {
+                setUsers(data);
+            } else {
+                setUsers([]);
+            }
         } catch (error) {
             console.error("Error fetching users:", error);
         }
@@ -34,7 +38,11 @@ export default function AdminPage() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
-            setAttendance(data);
+            if (Array.isArray(data)) {
+                setAttendance(data);
+            } else {
+                setAttendance([]);
+            }
         } catch (error) {
             console.error("Error fetching attendance:", error);
         }
