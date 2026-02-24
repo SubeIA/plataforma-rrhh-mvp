@@ -2,6 +2,8 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 interface User {
     [key: string]: any;
 }
@@ -22,19 +24,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
+        // User data (non-sensitive) still in localStorage for UI state
         const userData = localStorage.getItem('user');
-        if (token && userData) {
-            setUser(JSON.parse(userData));
+        if (userData) {
+            try {
+                setUser(JSON.parse(userData));
+            } catch {
+                localStorage.removeItem('user');
+            }
         }
         setLoading(false);
     }, []);
 
     const login = async (email: string, password: any) => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+            const res = await fetch(`${API_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ email, password }),
             });
 
@@ -44,7 +51,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
 
             const data = await res.json();
-            localStorage.setItem('token', data.token);
+            // Token is now in httpOnly cookie (not accessible via JS)
+            // Only store non-sensitive user info for UI
             localStorage.setItem('user', JSON.stringify(data.user));
             setUser(data.user);
             router.push('/selection');
@@ -54,8 +62,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const logout = () => {
-        localStorage.removeItem('token');
+    const logout = async () => {
+        try {
+            await fetch(`${API_URL}/api/auth/logout`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch {
+            // Continue logout even if API call fails
+        }
         localStorage.removeItem('user');
         setUser(null);
         router.push('/');

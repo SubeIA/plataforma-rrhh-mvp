@@ -62,6 +62,7 @@ router.put(
             'UPDATE requests SET status = ?, response = ? WHERE id = ?',
             [status, response, req.params.id]
         );
+        await db.audit(req.user.id, 'STATUS_CHANGE', 'requests', req.params.id, { status, response });
         res.json({ message: 'Request updated successfully' });
     })
 );

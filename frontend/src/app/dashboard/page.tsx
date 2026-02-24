@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/api";
 import { Clock, MapPin, CheckCircle2, History as HistoryIcon, LogIn, LogOut } from "lucide-react";
 
 export default function DashboardPage() {
@@ -16,13 +17,8 @@ export default function DashboardPage() {
     }, [user, authLoading]);
 
     const fetchHistory = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance/history`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch('/api/attendance/history');
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) {
@@ -64,7 +60,6 @@ export default function DashboardPage() {
     const handleAttendance = async (type: 'IN' | 'OUT') => {
         setLoading(true);
         setMessage("");
-        const token = localStorage.getItem('token');
 
         const body: any = { type };
         if (location) {
@@ -74,12 +69,9 @@ export default function DashboardPage() {
         }
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance`, {
+            const res = await apiFetch('/api/attendance', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
 

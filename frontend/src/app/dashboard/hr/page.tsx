@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/api";
 import CorrectionModal from "./components/CorrectionModal";
 import ManualEntryModal from "./components/ManualEntryModal";
 import UploadModal from "./components/UploadModal";
@@ -21,18 +22,13 @@ export default function HRPage() {
 
     // Fetch Attendance with Filters
     const fetchAttendance = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
         const queryParams = new URLSearchParams();
         if (filters.startDate) queryParams.append("startDate", filters.startDate);
         if (filters.endDate) queryParams.append("endDate", filters.endDate);
         if (filters.userId) queryParams.append("userId", filters.userId);
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance?${queryParams.toString()}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/attendance?${queryParams.toString()}`);
             const data = await res.json();
             setAttendance(data);
         } catch (error) {
@@ -41,11 +37,8 @@ export default function HRPage() {
     };
 
     const fetchUsers = async () => {
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch('/api/users');
             const data = await res.json();
             setUsers(data);
         } catch (error) {
@@ -76,14 +69,10 @@ export default function HRPage() {
     };
 
     const handleSaveCorrection = async (id: number, type: string, timestamp: string) => {
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance/${id}`, {
+            const res = await apiFetch(`/api/attendance/${id}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type, timestamp })
             });
             if (!res.ok) throw new Error("Update failed");
@@ -95,14 +84,10 @@ export default function HRPage() {
     };
 
     const handleManualEntry = async (userId: number, type: string, timestamp: string) => {
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance/manual`, {
+            const res = await apiFetch('/api/attendance/manual', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, type, timestamp })
             });
             if (!res.ok) throw new Error("Manual entry failed");
@@ -114,14 +99,10 @@ export default function HRPage() {
     };
 
     const handleUploadDocument = async (userId: number, name: string, url: string) => {
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/documents/upload`, {
+            const res = await apiFetch('/api/documents/upload', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, name, url })
             });
             if (!res.ok) throw new Error("Upload failed");

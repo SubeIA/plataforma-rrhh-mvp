@@ -17,6 +17,7 @@ router.post(
             'INSERT INTO documents (userId, name, url) VALUES (?, ?, ?)',
             [userId, name, url]
         );
+        await db.audit(req.user.id, 'UPLOAD', 'documents', result.id, { targetUserId: userId, name });
         res.status(201).json({ id: result.id, message: 'Document uploaded successfully' });
     })
 );
@@ -56,6 +57,7 @@ router.post(
             "UPDATE documents SET status = 'SIGNED', signedAt = ? WHERE id = ?",
             [signedAt, req.params.id]
         );
+        await db.audit(req.user.id, 'SIGN', 'documents', req.params.id, { signedAt });
         res.json({ message: 'Document signed successfully', signedAt });
     })
 );

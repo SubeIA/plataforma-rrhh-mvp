@@ -27,8 +27,12 @@ export default function SelectionPage() {
                     Sistema de Control de Asistencia v1.0
                 </p>
                 <button
-                    onClick={() => {
-                        localStorage.removeItem('token');
+                    onClick={async () => {
+                        try {
+                            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/logout`, {
+                                method: 'POST', credentials: 'include'
+                            });
+                        } catch {}
                         localStorage.removeItem('user');
                         window.location.href = '/';
                     }}

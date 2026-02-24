@@ -33,8 +33,14 @@ router.post(
             { expiresIn: '1h' }
         );
 
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: config.isProduction,
+            sameSite: config.isProduction ? 'none' : 'lax',
+            maxAge: 60 * 60 * 1000, // 1 hour
+        });
+
         res.json({
-            token,
             user: { id: user.id, email: user.email, role: user.role },
         });
     })
@@ -60,5 +66,15 @@ router.post(
         }
     })
 );
+
+// POST /api/auth/logout
+router.post('/logout', (req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: config.isProduction,
+        sameSite: config.isProduction ? 'none' : 'lax',
+    });
+    res.json({ message: 'Logged out successfully' });
+});
 
 export default router;

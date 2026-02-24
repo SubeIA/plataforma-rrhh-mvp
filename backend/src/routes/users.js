@@ -50,6 +50,7 @@ router.post(
                 [userId, fullName, phone, address, department, position, startDate]
             );
 
+            await db.audit(req.user.id, 'CREATE', 'users', userId, { email, role, fullName, department });
             res.status(201).json({ id: userId, email, role, fullName, department, position });
         } catch (err) {
             throw new ConflictError('Error creating user/profile. Email might exist.');
@@ -82,6 +83,7 @@ router.put(
             [id, fullName, phone, address, department, position, startDate]
         );
 
+        await db.audit(req.user.id, 'UPDATE', 'users', id, { email, role, fullName, department });
         res.json({ message: 'User updated successfully' });
     })
 );
@@ -92,6 +94,7 @@ router.delete(
     verifyToken,
     authorize('admin'),
     asyncHandler(async (req, res) => {
+        await db.audit(req.user.id, 'DELETE', 'users', req.params.id);
         await db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
         res.json({ message: 'User deleted' });
     })

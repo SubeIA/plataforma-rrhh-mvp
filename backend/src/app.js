@@ -2,9 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import config from './config/env.js';
 import errorHandler from './middleware/errorHandler.js';
+import sanitize from './middleware/sanitize.js';
 import db from './db.js';
 
 // Route imports
@@ -25,10 +27,14 @@ app.use(helmet());
 app.use(
     cors({
         origin: config.corsOrigins,
+        credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
         allowedHeaders: ['Content-Type', 'Authorization'],
     })
 );
+
+// ─── Cookies ────────────────────────────────────────────────
+app.use(cookieParser());
 
 // ─── Rate Limiting ──────────────────────────────────────────
 const generalLimiter = rateLimit({
@@ -41,10 +47,10 @@ const generalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20,
+    max: 7,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: true, message: 'Too many login attempts, please try again later.' },
+    message: { error: true, message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.' },
 });
 
 app.use(generalLimiter);
@@ -55,6 +61,19 @@ app.use(morgan(config.isProduction ? 'combined' : 'dev'));
 // ─── Body Parsing ───────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
 
+// ─── Input Sanitization ────────────────────────────────────
+app.use(sanitize);
+
+// ─── CSRF Protection (Origin Check) ────────────────────────
+app.use((req, res, next) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+    const origin = req.headers.origin;
+    const allowedOrigins = Array.isArray(config.corsOrigins) ? config.corsOrigins : [];
+    if (origin && allowedOrigins.length > 0 && !allowedOrigins.includes(origin)) {
+        return res.status(403).json({ error: true, message: 'Origin not allowed' });
+    }
+    next();
+});
 
 // ─── Routes ─────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);

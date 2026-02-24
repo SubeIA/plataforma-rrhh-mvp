@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/api";
 
 export default function ShiftManagementPage() {
     const { user, protectRoute, loading } = useAuth();
@@ -19,13 +20,10 @@ export default function ShiftManagementPage() {
     const [assignStartDate, setAssignStartDate] = useState("");
 
     const fetchData = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
         try {
             const [shiftsRes, usersRes] = await Promise.all([
-                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/shifts`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users`, { headers: { 'Authorization': `Bearer ${token}` } })
+                apiFetch('/api/shifts'),
+                apiFetch('/api/users')
             ]);
 
             if (shiftsRes.ok) setShifts(await shiftsRes.json());
@@ -44,11 +42,10 @@ export default function ShiftManagementPage() {
 
     const handleCreateShift = async (e: React.FormEvent) => {
         e.preventDefault();
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/shifts`, {
+            const res = await apiFetch('/api/shifts', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, startTime, endTime, toleranceMinutes: tolerance })
             });
             if (res.ok) {
@@ -63,11 +60,10 @@ export default function ShiftManagementPage() {
 
     const handleAssignShift = async (e: React.FormEvent) => {
         e.preventDefault();
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/shifts/assign`, {
+            const res = await apiFetch('/api/shifts/assign', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: selectedUser, shiftId: selectedShift, startDate: assignStartDate })
             });
             if (res.ok) {

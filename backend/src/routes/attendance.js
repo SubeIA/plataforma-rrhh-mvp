@@ -9,6 +9,7 @@ import {
     updateAttendanceSchema,
 } from '../validators/attendance.js';
 import { getDistanceInMeters } from '../utils/geo.js';
+import { AppError } from '../errors/AppError.js';
 
 const router = Router();
 
@@ -21,28 +22,31 @@ router.post(
         const { type, lat, lng, accuracy } = req.body;
         const userId = req.user.id;
 
-        // Geolocation Validation
-        if (lat != null && lng != null) {
-            const offices = await db.query('SELECT * FROM offices');
+        // Geolocation is required
+        if (lat == null || lng == null) {
+            throw new AppError('Se requiere ubicación GPS para registrar asistencia', 400);
+        }
 
-            if (offices.length > 0) {
-                let withinRange = false;
-                for (const office of offices) {
-                    const distance = getDistanceInMeters(lat, lng, office.lat, office.lng);
-                    if (distance <= office.radius) {
-                        withinRange = true;
-                        break;
-                    }
+        // Geolocation Validation - enforce office range
+        const offices = await db.query('SELECT * FROM offices');
+
+        if (offices.length > 0) {
+            let withinRange = false;
+            for (const office of offices) {
+                const distance = getDistanceInMeters(lat, lng, office.lat, office.lng);
+                if (distance <= office.radius) {
+                    withinRange = true;
+                    break;
                 }
-                if (!withinRange) {
-                    console.warn(`User ${userId} punched outside range. Coords: ${lat},${lng}`);
-                }
+            }
+            if (!withinRange) {
+                throw new AppError('No estás dentro del rango permitido de la oficina. No se puede registrar asistencia.', 403);
             }
         }
 
         const result = await db.run(
             'INSERT INTO attendance (userId, type, lat, lng, accuracy) VALUES (?, ?, ?, ?, ?)',
-            [userId, type, lat || null, lng || null, accuracy || null]
+            [userId, type, lat, lng, accuracy || null]
         );
         res.status(201).json({ id: result.id, type, timestamp: new Date() });
     })
@@ -131,6 +135,7 @@ router.post(
             'INSERT INTO attendance (userId, type, timestamp) VALUES (?, ?, ?)',
             [userId, type, timestamp]
         );
+        await db.audit(req.user.id, 'MANUAL_ENTRY', 'attendance', result.id, { targetUserId: userId, type, timestamp });
         res.status(201).json({ id: result.id, message: 'Record added manually' });
     })
 );
@@ -148,6 +153,7 @@ router.put(
             'UPDATE attendance SET type = ?, timestamp = ? WHERE id = ?',
             [type, timestamp, id]
         );
+        await db.audit(req.user.id, 'CORRECTION', 'attendance', id, { type, timestamp });
         res.json({ message: 'Record updated successfully' });
     })
 );

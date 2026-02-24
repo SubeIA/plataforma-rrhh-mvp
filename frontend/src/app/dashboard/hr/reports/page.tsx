@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/api";
 
 export default function ReportsPage() {
     const { user, protectRoute, loading } = useAuth();
@@ -19,11 +20,8 @@ export default function ReportsPage() {
             return;
         }
         setFetching(true);
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/reports/payroll?startDate=${startDate}&endDate=${endDate}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/reports/payroll?startDate=${startDate}&endDate=${endDate}`);
             if (res.ok) {
                 const data = await res.json();
                 setReportData(data);

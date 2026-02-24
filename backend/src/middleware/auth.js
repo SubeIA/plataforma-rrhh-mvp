@@ -3,12 +3,14 @@ import config from '../config/env.js';
 import { UnauthorizedError, ForbiddenError } from '../errors/AppError.js';
 
 /**
- * Verifies JWT token from Authorization header.
+ * Verifies JWT token from httpOnly cookie or Authorization header (fallback).
  * Attaches decoded user to req.user.
  */
 export const verifyToken = (req, res, next) => {
+    const cookieToken = req.cookies?.token;
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const headerToken = authHeader && authHeader.split(' ')[1];
+    const token = cookieToken || headerToken;
 
     if (!token) {
         throw new UnauthorizedError('Access token is required');

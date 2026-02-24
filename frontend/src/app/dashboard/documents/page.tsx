@@ -1,18 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/api";
 
 export default function MyDocumentsPage() {
     const { user, protectRoute, loading } = useAuth();
     const [documents, setDocuments] = useState([]);
 
     const fetchDocuments = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/documents/my-documents`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch('/api/documents/my-documents');
             const data = await res.json();
             setDocuments(data);
         } catch (error) {
@@ -27,12 +24,8 @@ export default function MyDocumentsPage() {
 
     const handleSign = async (docId: number) => {
         if (!confirm("¿Desea firmar digitalmente este documento?")) return;
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/documents/${docId}/sign`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch(`/api/documents/${docId}/sign`, { method: 'POST' });
             if (!res.ok) throw new Error("Signing failed");
             alert("Documento firmado exitosamente.");
             fetchDocuments();

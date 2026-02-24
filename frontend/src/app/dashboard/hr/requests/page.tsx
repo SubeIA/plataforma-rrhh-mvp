@@ -1,18 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/api";
 
 export default function HRRequestsPage() {
     const { user, protectRoute, loading } = useAuth();
     const [requests, setRequests] = useState([]);
 
     const fetchRequests = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/requests`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch('/api/requests');
             const data = await res.json();
             setRequests(data);
         } catch (error) {
@@ -31,14 +28,10 @@ export default function HRRequestsPage() {
         const response = prompt(status === 'APPROVED' ? "Observación (Opcional):" : "Motivo del rechazo:");
         if (response === null) return;
 
-        const token = localStorage.getItem('token');
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/requests/${id}/status`, {
+            const res = await apiFetch(`/api/requests/${id}/status`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status, response })
             });
             if (!res.ok) throw new Error("Update failed");
@@ -92,7 +85,7 @@ export default function HRRequestsPage() {
                                         {req.reason}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                                             ${req.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
                                                 req.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                                                     'bg-yellow-100 text-yellow-800'}`}>

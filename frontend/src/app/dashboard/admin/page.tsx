@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/lib/api";
 import UserModal from "./components/UserModal";
 import { Users, History, UserPlus, Edit3, Trash2, Shield, LayoutGrid, List, MapPin } from "lucide-react";
 
@@ -13,12 +14,8 @@ export default function AdminPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
     const fetchUsers = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch('/api/users');
             const data = await res.json();
             if (Array.isArray(data)) {
                 setUsers(data);
@@ -31,12 +28,8 @@ export default function AdminPage() {
     };
 
     const fetchAttendance = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/attendance/all`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiFetch('/api/attendance/all');
             const data = await res.json();
             if (Array.isArray(data)) {
                 setAttendance(data);
@@ -68,12 +61,8 @@ export default function AdminPage() {
 
     const handleDeleteUser = async (id: number) => {
         if (!confirm("¿Estás seguro de que quieres eliminar este usuario?")) return;
-        const token = localStorage.getItem('token');
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
             fetchUsers();
         } catch (error) {
             console.error("Error deleting user:", error);
@@ -81,19 +70,15 @@ export default function AdminPage() {
     };
 
     const handleSaveUser = async (formData: any) => {
-        const token = localStorage.getItem('token');
         const url = editingUser
-            ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users/${editingUser.id}`
-            : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/users`;
+            ? `/api/users/${editingUser.id}`
+            : `/api/users`;
         const method = editingUser ? 'PUT' : 'POST';
 
         try {
-            const res = await fetch(url, {
+            const res = await apiFetch(url, {
                 method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
 

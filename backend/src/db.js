@@ -9,7 +9,9 @@ let db;
 if (isPostgres) {
     db = new pg.Pool({
         connectionString: config.databaseUrl,
-        ssl: { rejectUnauthorized: false },
+        ssl: config.isProduction
+            ? { rejectUnauthorized: true }
+            : { rejectUnauthorized: false },
     });
     console.log('📦 Connected to PostgreSQL database.');
     initializeTables();
@@ -175,6 +177,15 @@ async function initializeTables() {
             lng REAL,
             radius INTEGER DEFAULT 100
         )`,
+        `CREATE TABLE IF NOT EXISTS audit_log (
+            id ${idType},
+            userId INTEGER,
+            action TEXT,
+            tableName TEXT,
+            recordId INTEGER,
+            details TEXT,
+            timestamp ${timestampType}
+        )`,
     ];
 
     try {
@@ -190,22 +201,41 @@ async function initializeTables() {
             console.log('🏢 Seeded Main Office');
         }
 
-        // Seed Admin User
-        const adminEmail = 'admin@test.com';
-        const adminPassword = 'admin';
-        const salt = bcrypt.genSaltSync(10);
-        const hash = bcrypt.hashSync(adminPassword, salt);
+        // Seed Admin User (from environment variables only)
+        const adminEmail = config.adminEmail;
+        const adminPassword = config.adminPassword;
 
-        const admin = await get("SELECT * FROM users WHERE email = ?", [adminEmail]);
-        if (!admin) {
-            await run("INSERT INTO users (email, password, role) VALUES (?, ?, ?)", [adminEmail, hash, 'admin']);
-            console.log('👤 Admin user created: admin@test.com / admin');
+        if (adminEmail && adminPassword) {
+            const salt = bcrypt.genSaltSync(12);
+            const hash = bcrypt.hashSync(adminPassword, salt);
+
+            const admin = await get("SELECT * FROM users WHERE email = ?", [adminEmail]);
+            if (!admin) {
+                await run("INSERT INTO users (email, password, role) VALUES (?, ?, ?)", [adminEmail, hash, 'admin']);
+                console.log('👤 Admin user created from environment variables.');
+            } else {
+                console.log('👤 Admin user already exists.');
+            }
         } else {
-            console.log('👤 Admin user already exists.');
+            console.log('ℹ️  No ADMIN_EMAIL/ADMIN_PASSWORD set. Skipping admin seed.');
         }
     } catch (err) {
         console.error('Error in initializeTables:', err);
     }
 }
 
-export default { query, get, run, close, initializeTables };
+/**
+ * Log an audit event for data modifications.
+ */
+async function audit(userId, action, tableName, recordId, details = null) {
+    try {
+        await run(
+            'INSERT INTO audit_log (userId, action, tableName, recordId, details) VALUES (?, ?, ?, ?, ?)',
+            [userId, action, tableName, recordId, details ? JSON.stringify(details) : null]
+        );
+    } catch (err) {
+        console.error('Audit log error:', err);
+    }
+}
+
+export default { query, get, run, close, initializeTables, audit };
