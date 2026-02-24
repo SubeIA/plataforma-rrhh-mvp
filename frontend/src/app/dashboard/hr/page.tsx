@@ -8,8 +8,8 @@ import UploadModal from "./components/UploadModal";
 
 export default function HRPage() {
     const { user, protectRoute, loading } = useAuth();
-    const [attendance, setAttendance] = useState([]);
-    const [users, setUsers] = useState([]);
+    const [attendance, setAttendance] = useState<any[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
     const [filters, setFilters] = useState({
         startDate: "",
         endDate: "",
@@ -19,6 +19,7 @@ export default function HRPage() {
     const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
     const [isManualOpen, setIsManualOpen] = useState(false);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [fetchError, setFetchError] = useState("");
 
     // Fetch Attendance with Filters
     const fetchAttendance = async () => {
@@ -29,20 +30,32 @@ export default function HRPage() {
 
         try {
             const res = await apiFetch(`/api/attendance?${queryParams.toString()}`);
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
-            setAttendance(data);
+            if (Array.isArray(data)) {
+                setAttendance(data);
+            } else {
+                setAttendance([]);
+            }
         } catch (error) {
             console.error("Error fetching attendance:", error);
+            setFetchError("No se pudieron cargar los datos de asistencia. Verifique su sesión.");
         }
     };
 
     const fetchUsers = async () => {
         try {
             const res = await apiFetch('/api/users');
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
-            setUsers(data);
+            if (Array.isArray(data)) {
+                setUsers(data);
+            } else {
+                setUsers([]);
+            }
         } catch (error) {
             console.error("Error fetching users:", error);
+            setFetchError("No se pudieron cargar los datos de usuarios.");
         }
     }
 
@@ -122,6 +135,12 @@ export default function HRPage() {
     return (
         <div className="p-8 max-w-7xl mx-auto">
             <h1 className="text-3xl font-bold mb-8">Recursos Humanos</h1>
+
+            {fetchError && (
+                <div className="mb-8 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg font-medium">
+                    {fetchError}
+                </div>
+            )}
 
             {/* Stats / Quick Actions Placeholder */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

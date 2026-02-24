@@ -12,10 +12,12 @@ export default function AdminPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+    const [fetchError, setFetchError] = useState("");
 
     const fetchUsers = async () => {
         try {
             const res = await apiFetch('/api/users');
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
             if (Array.isArray(data)) {
                 setUsers(data);
@@ -24,12 +26,14 @@ export default function AdminPage() {
             }
         } catch (error) {
             console.error("Error fetching users:", error);
+            setFetchError("No se pudieron cargar los datos. Verifique su sesión.");
         }
     };
 
     const fetchAttendance = async () => {
         try {
             const res = await apiFetch('/api/attendance/all');
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
             if (Array.isArray(data)) {
                 setAttendance(data);
@@ -38,6 +42,7 @@ export default function AdminPage() {
             }
         } catch (error) {
             console.error("Error fetching attendance:", error);
+            setFetchError("No se pudieron cargar los datos. Verifique su sesión.");
         }
     }
 
@@ -120,6 +125,13 @@ export default function AdminPage() {
                     <p className="text-gray-500 mt-2">Gestiona el equipo y supervisa la actividad global.</p>
                 </div>
             </header>
+
+            {fetchError && (
+                <div className="mb-8 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-center gap-3 animate-in">
+                    <Shield size={20} />
+                    <p className="font-medium text-sm">{fetchError}</p>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 {/* Users Section */}

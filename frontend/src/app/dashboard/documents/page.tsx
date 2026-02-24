@@ -5,15 +5,35 @@ import { apiFetch } from "@/lib/api";
 
 export default function MyDocumentsPage() {
     const { user, protectRoute, loading } = useAuth();
-    const [documents, setDocuments] = useState([]);
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [error, setError] = useState("");
+    const [loadingDocs, setLoadingDocs] = useState(false);
 
     const fetchDocuments = async () => {
+        setLoadingDocs(true);
+        setError("");
         try {
             const res = await apiFetch('/api/documents/my-documents');
+            if (!res.ok) {
+                if (res.status === 401) {
+                    setError("Sesión expirada. Por favor, vuelva a iniciar sesión.");
+                } else {
+                    setError("Error al obtener los documentos.");
+                }
+                setDocuments([]);
+                return;
+            }
             const data = await res.json();
-            setDocuments(data);
+            if (Array.isArray(data)) {
+                setDocuments(data);
+            } else {
+                setDocuments([]);
+            }
         } catch (error) {
             console.error("Error fetching documents:", error);
+            setError("Error de conexión al obtener documentos.");
+        } finally {
+            setLoadingDocs(false);
         }
     };
 
@@ -35,12 +55,18 @@ export default function MyDocumentsPage() {
         }
     };
 
-    if (loading) return <p className="p-8">Cargando...</p>;
+    if (loading || loadingDocs) return <p className="p-8">Cargando...</p>;
     if (!user) return null;
 
     return (
         <div className="p-8 max-w-7xl mx-auto">
             <h1 className="text-3xl font-bold mb-8">Mis Documentos</h1>
+
+            {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg font-medium">
+                    {error}
+                </div>
+            )}
 
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
