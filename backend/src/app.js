@@ -21,17 +21,18 @@ import reportsRoutes from './routes/reports.js';
 const app = express();
 
 // ─── Security ───────────────────────────────────────────────
-app.use(helmet());
-
 // ─── CORS ───────────────────────────────────────────────────
 app.use(
     cors({
         origin: config.corsOrigins,
         credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
     })
 );
+
+// ─── Security ───────────────────────────────────────────────
+app.use(helmet());
 
 // ─── Cookies ────────────────────────────────────────────────
 app.use(cookieParser());

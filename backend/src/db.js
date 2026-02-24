@@ -201,23 +201,21 @@ async function initializeTables() {
             console.log('🏢 Seeded Main Office');
         }
 
-        // Seed Admin User (from environment variables only)
-        const adminEmail = config.adminEmail;
-        const adminPassword = config.adminPassword;
+        // Seed Admin User
+        const adminEmail = config.adminEmail || 'admin@test.cl';
+        const adminPassword = config.adminPassword || 'admin';
 
         if (adminEmail && adminPassword) {
-            const salt = bcrypt.genSaltSync(12);
+            const salt = bcrypt.genSaltSync(10);
             const hash = bcrypt.hashSync(adminPassword, salt);
 
             const admin = await get("SELECT * FROM users WHERE email = ?", [adminEmail]);
             if (!admin) {
                 await run("INSERT INTO users (email, password, role) VALUES (?, ?, ?)", [adminEmail, hash, 'admin']);
-                console.log('👤 Admin user created from environment variables.');
+                console.log(`👤 Admin user created: ${adminEmail}`);
             } else {
-                console.log('👤 Admin user already exists.');
+                console.log(`👤 Admin user already exists: ${adminEmail}`);
             }
-        } else {
-            console.log('ℹ️  No ADMIN_EMAIL/ADMIN_PASSWORD set. Skipping admin seed.');
         }
     } catch (err) {
         console.error('Error in initializeTables:', err);
