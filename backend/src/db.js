@@ -10,7 +10,7 @@ if (isPostgres) {
     db = new pg.Pool({
         connectionString: config.databaseUrl,
         ssl: config.isProduction
-            ? { rejectUnauthorized: true }
+            ? { rejectUnauthorized: false }
             : { rejectUnauthorized: false },
     });
     console.log('📦 Connected to PostgreSQL database.');
