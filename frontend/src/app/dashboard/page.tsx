@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { Clock, MapPin, CheckCircle2, History as HistoryIcon, LogIn, LogOut } from "lucide-react";
 
+// Sync marker for repository update
 export default function DashboardPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
     const [history, setHistory] = useState<any[]>([]);

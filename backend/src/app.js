@@ -69,7 +69,10 @@ app.use(sanitize);
 app.use((req, res, next) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
     const origin = req.headers.origin;
-    const allowedOrigins = Array.isArray(config.corsOrigins) ? config.corsOrigins : [];
+    const allowedOrigins = Array.isArray(config.corsOrigins) ? config.corsOrigins : (config.corsOrigins === '*' ? '*' : []);
+
+    if (config.corsOrigins === '*') return next();
+
     if (origin && allowedOrigins.length > 0 && !allowedOrigins.includes(origin)) {
         return res.status(403).json({ error: true, message: 'Origin not allowed' });
     }
