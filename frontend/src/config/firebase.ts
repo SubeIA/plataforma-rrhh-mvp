@@ -1,8 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, Auth } from "firebase/auth";
 
-// Usamos las variables de entorno para inicializar.
-// Como Next.js requiere NEXT_PUBLIC_ para exponerlas al navegador:
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -12,8 +10,16 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Singleton para no inicializar multiple veces por HMR en pre-render
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
+
+// Inicializar Auth solo en el cliente para prevenir crashes por validación de API KEY
+// durante el Server-Side Rendering de Next.js.
+let auth: Auth;
+if (typeof window !== "undefined") {
+    auth = getAuth(app);
+} else {
+    // Si estamos construyendo (SSR), pasamos un objeto simulado.
+    auth = {} as Auth;
+}
 
 export { app, auth };
