@@ -31,7 +31,7 @@ jobs:
 
       # -- BACKEND --
       - name: Install Backend Dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm install --legacy-peer-deps
         working-directory: backend
         
       # -- FIREBASE DEPLOY --
