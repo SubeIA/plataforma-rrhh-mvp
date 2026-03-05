@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import db from '../db.js';
+import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
 import { AppError, NotFoundError } from '../errors/AppError.js';
@@ -13,12 +13,25 @@ router.post(
     authorize('admin', 'hr'),
     asyncHandler(async (req, res) => {
         const { userId, name, url } = req.body;
-        const result = await db.run(
-            'INSERT INTO documents (userId, name, url) VALUES (?, ?, ?)',
-            [userId, name, url]
-        );
-        await db.audit(req.user.id, 'UPLOAD', 'documents', result.id, { targetUserId: userId, name });
-        res.status(201).json({ id: result.id, message: 'Document uploaded successfully' });
+
+        const newDoc = await db.collection('documents').add({
+            userId,
+            name,
+            url,
+            status: 'PENDING',
+            createdAt: new Date().toISOString()
+        });
+
+        await db.collection('audit_log').add({
+            userId: req.user.uid,
+            action: 'UPLOAD',
+            tableName: 'documents',
+            recordId: newDoc.id,
+            details: JSON.stringify({ targetUserId: userId, name }),
+            timestamp: new Date().toISOString()
+        });
+
+        res.status(201).json({ id: newDoc.id, message: 'Document uploaded successfully' });
     })
 );
 
@@ -27,10 +40,12 @@ router.get(
     '/my-documents',
     verifyToken,
     asyncHandler(async (req, res) => {
-        const rows = await db.query(
-            'SELECT * FROM documents WHERE userId = ? ORDER BY createdAt DESC',
-            [req.user.id]
-        );
+        const snapshot = await db.collection('documents')
+            .where('userId', '==', req.user.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(rows);
     })
 );
@@ -40,24 +55,31 @@ router.post(
     '/:id/sign',
     verifyToken,
     asyncHandler(async (req, res) => {
-        const doc = await db.get(
-            'SELECT * FROM documents WHERE id = ? AND userId = ?',
-            [req.params.id, req.user.id]
-        );
+        const docRef = db.collection('documents').doc(req.params.id);
+        const docSnapshot = await docRef.get();
 
-        if (!doc) {
+        if (!docSnapshot.exists || docSnapshot.data().userId !== req.user.uid) {
             throw new NotFoundError('Document');
         }
-        if (doc.status === 'SIGNED') {
+        if (docSnapshot.data().status === 'SIGNED') {
             throw new AppError('Document already signed', 400);
         }
 
         const signedAt = new Date().toISOString();
-        await db.run(
-            "UPDATE documents SET status = 'SIGNED', signedAt = ? WHERE id = ?",
-            [signedAt, req.params.id]
-        );
-        await db.audit(req.user.id, 'SIGN', 'documents', req.params.id, { signedAt });
+        await docRef.update({
+            status: 'SIGNED',
+            signedAt
+        });
+
+        await db.collection('audit_log').add({
+            userId: req.user.uid,
+            action: 'SIGN',
+            tableName: 'documents',
+            recordId: req.params.id,
+            details: JSON.stringify({ signedAt }),
+            timestamp: new Date().toISOString()
+        });
+
         res.json({ message: 'Document signed successfully', signedAt });
     })
 );

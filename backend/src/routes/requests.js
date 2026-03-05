@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import db from '../db.js';
+import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
@@ -14,11 +14,18 @@ router.post(
     validate(createRequestSchema),
     asyncHandler(async (req, res) => {
         const { type, startDate, endDate, reason } = req.body;
-        const result = await db.run(
-            'INSERT INTO requests (userId, type, startDate, endDate, reason) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, type, startDate, endDate, reason]
-        );
-        res.status(201).json({ id: result.id, message: 'Request submitted successfully' });
+
+        const newDoc = await db.collection('requests').add({
+            userId: req.user.uid,
+            type,
+            startDate,
+            endDate,
+            reason,
+            status: 'PENDING',
+            createdAt: new Date().toISOString()
+        });
+
+        res.status(201).json({ id: newDoc.id, message: 'Request submitted successfully' });
     })
 );
 
@@ -30,22 +37,31 @@ router.get(
         const isPrivileged = req.user.role === 'admin' || req.user.role === 'hr';
         const { mode } = req.query;
 
-        let sql = `
-            SELECT r.*, u.email, p.fullName, p.department
-            FROM requests r
-            JOIN users u ON r.userId = u.id
-            LEFT JOIN profiles p ON u.id = p.userId
-        `;
-        const params = [];
+        let query = db.collection('requests');
 
         if (!isPrivileged || mode === 'my-requests') {
-            sql += ' WHERE r.userId = ?';
-            params.push(req.user.id);
+            query = query.where('userId', '==', req.user.uid);
         }
 
-        sql += ' ORDER BY r.createdAt DESC';
+        query = query.orderBy('createdAt', 'desc').limit(50);
 
-        const rows = await db.query(sql, params);
+        const snapshot = await query.get();
+
+        const requestsPromises = snapshot.docs.map(async (doc) => {
+            const reqData = doc.data();
+            const userDoc = await db.collection('users').doc(reqData.userId).get();
+            const profileDoc = await db.collection('profiles').doc(reqData.userId).get();
+
+            return {
+                id: doc.id,
+                ...reqData,
+                email: userDoc.exists ? userDoc.data().email : 'Unknown',
+                fullName: profileDoc.exists ? profileDoc.data().fullName : 'Unknown',
+                department: profileDoc.exists ? profileDoc.data().department : 'Unknown'
+            };
+        });
+
+        const rows = await Promise.all(requestsPromises);
         res.json(rows);
     })
 );
@@ -58,11 +74,21 @@ router.put(
     validate(updateRequestStatusSchema),
     asyncHandler(async (req, res) => {
         const { status, response } = req.body;
-        await db.run(
-            'UPDATE requests SET status = ?, response = ? WHERE id = ?',
-            [status, response, req.params.id]
-        );
-        await db.audit(req.user.id, 'STATUS_CHANGE', 'requests', req.params.id, { status, response });
+
+        await db.collection('requests').doc(req.params.id).update({
+            status,
+            response
+        });
+
+        await db.collection('audit_log').add({
+            userId: req.user.uid,
+            action: 'STATUS_CHANGE',
+            tableName: 'requests',
+            recordId: req.params.id,
+            details: JSON.stringify({ status, response }),
+            timestamp: new Date().toISOString()
+        });
+
         res.json({ message: 'Request updated successfully' });
     })
 );

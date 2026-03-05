@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import db from '../db.js';
+import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
@@ -20,21 +20,20 @@ router.post(
     validate(punchSchema),
     asyncHandler(async (req, res) => {
         const { type, lat, lng, accuracy } = req.body;
-        const userId = req.user.id;
+        const userId = req.user.uid; // uid en vez de id por firebase
 
-        // Geolocation is required
         if (lat == null || lng == null) {
             throw new AppError('Se requiere ubicación GPS para registrar asistencia', 400);
         }
 
-        // Geolocation Validation - enforce office range
-        const offices = await db.query('SELECT * FROM offices');
+        const officesSnapshot = await db.collection('offices').get();
+        const offices = officesSnapshot.docs.map(doc => doc.data());
 
         if (offices.length > 0) {
             let withinRange = false;
             for (const office of offices) {
                 const distance = getDistanceInMeters(lat, lng, office.lat, office.lng);
-                if (distance <= office.radius) {
+                if (distance <= (office.radius || 100)) {
                     withinRange = true;
                     break;
                 }
@@ -44,11 +43,16 @@ router.post(
             }
         }
 
-        const result = await db.run(
-            'INSERT INTO attendance (userId, type, lat, lng, accuracy) VALUES (?, ?, ?, ?, ?)',
-            [userId, type, lat, lng, accuracy || null]
-        );
-        res.status(201).json({ id: result.id, type, timestamp: new Date() });
+        const newDoc = await db.collection('attendance').add({
+            userId,
+            type,
+            lat,
+            lng,
+            accuracy: accuracy || null,
+            timestamp: new Date().toISOString()
+        });
+
+        res.status(201).json({ id: newDoc.id, type, timestamp: new Date() });
     })
 );
 
@@ -58,37 +62,45 @@ router.get(
     verifyToken,
     asyncHandler(async (req, res) => {
         const isPrivileged = req.user.role === 'admin' || req.user.role === 'hr';
-        const { userId, startDate, endDate } = req.query;
+        let { userId, startDate, endDate } = req.query;
 
-        let sql = `
-            SELECT a.id, a.type, a.timestamp, u.email, p.fullName, p.department 
-            FROM attendance a 
-            JOIN users u ON a.userId = u.id 
-            LEFT JOIN profiles p ON u.id = p.userId
-            WHERE 1=1
-        `;
-        const params = [];
+        let query = db.collection('attendance');
 
         if (!isPrivileged) {
-            sql += ' AND a.userId = ?';
-            params.push(req.user.id);
+            query = query.where('userId', '==', req.user.uid);
         } else if (userId) {
-            sql += ' AND a.userId = ?';
-            params.push(userId);
+            query = query.where('userId', '==', userId);
         }
 
+        // Firestore does not support multiple range filters on different fields easily,
+        // but it supports range filters on the same field "timestamp"
         if (startDate) {
-            sql += ' AND a.timestamp >= ?';
-            params.push(startDate);
+            query = query.where('timestamp', '>=', startDate);
         }
         if (endDate) {
-            sql += ' AND a.timestamp <= ?';
-            params.push(endDate);
+            query = query.where('timestamp', '<=', endDate);
         }
 
-        sql += ' ORDER BY a.timestamp DESC LIMIT 100';
+        query = query.orderBy('timestamp', 'desc').limit(100);
 
-        const rows = await db.query(sql, params);
+        const snapshot = await query.get();
+
+        // Manual join with user & profile
+        const attendancePromises = snapshot.docs.map(async (doc) => {
+            const att = doc.data();
+            const userDoc = await db.collection('users').doc(att.userId).get();
+            const profileDoc = await db.collection('profiles').doc(att.userId).get();
+
+            return {
+                id: doc.id,
+                ...att,
+                email: userDoc.exists ? userDoc.data().email : null,
+                fullName: profileDoc.exists ? profileDoc.data().fullName : null,
+                department: profileDoc.exists ? profileDoc.data().department : null
+            };
+        });
+
+        const rows = await Promise.all(attendancePromises);
         res.json(rows);
     })
 );
@@ -98,10 +110,13 @@ router.get(
     '/history',
     verifyToken,
     asyncHandler(async (req, res) => {
-        const rows = await db.query(
-            'SELECT * FROM attendance WHERE userId = ? ORDER BY timestamp DESC LIMIT 10',
-            [req.user.id]
-        );
+        const snapshot = await db.collection('attendance')
+            .where('userId', '==', req.user.uid)
+            .orderBy('timestamp', 'desc')
+            .limit(10)
+            .get();
+
+        const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(rows);
     })
 );
@@ -112,13 +127,22 @@ router.get(
     verifyToken,
     authorize('admin'),
     asyncHandler(async (req, res) => {
-        const rows = await db.query(`
-            SELECT a.id, a.type, a.timestamp, u.email 
-            FROM attendance a 
-            JOIN users u ON a.userId = u.id 
-            ORDER BY a.timestamp DESC 
-            LIMIT 50
-        `);
+        const snapshot = await db.collection('attendance')
+            .orderBy('timestamp', 'desc')
+            .limit(50)
+            .get();
+
+        const promises = snapshot.docs.map(async (doc) => {
+            const data = doc.data();
+            const userDoc = await db.collection('users').doc(data.userId).get();
+            return {
+                id: doc.id,
+                ...data,
+                email: userDoc.exists ? userDoc.data().email : 'Unknown'
+            };
+        });
+
+        const rows = await Promise.all(promises);
         res.json(rows);
     })
 );
@@ -131,12 +155,23 @@ router.post(
     validate(manualAttendanceSchema),
     asyncHandler(async (req, res) => {
         const { userId, type, timestamp } = req.body;
-        const result = await db.run(
-            'INSERT INTO attendance (userId, type, timestamp) VALUES (?, ?, ?)',
-            [userId, type, timestamp]
-        );
-        await db.audit(req.user.id, 'MANUAL_ENTRY', 'attendance', result.id, { targetUserId: userId, type, timestamp });
-        res.status(201).json({ id: result.id, message: 'Record added manually' });
+
+        const newDoc = await db.collection('attendance').add({
+            userId,
+            type,
+            timestamp
+        });
+
+        await db.collection('audit_log').add({
+            userId: req.user.uid,
+            action: 'MANUAL_ENTRY',
+            tableName: 'attendance',
+            recordId: newDoc.id,
+            details: JSON.stringify({ targetUserId: userId, type, timestamp }),
+            timestamp: new Date().toISOString()
+        });
+
+        res.status(201).json({ id: newDoc.id, message: 'Record added manually' });
     })
 );
 
@@ -149,11 +184,21 @@ router.put(
     asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { type, timestamp } = req.body;
-        await db.run(
-            'UPDATE attendance SET type = ?, timestamp = ? WHERE id = ?',
-            [type, timestamp, id]
-        );
-        await db.audit(req.user.id, 'CORRECTION', 'attendance', id, { type, timestamp });
+
+        await db.collection('attendance').doc(id).update({
+            type,
+            timestamp
+        });
+
+        await db.collection('audit_log').add({
+            userId: req.user.uid,
+            action: 'CORRECTION',
+            tableName: 'attendance',
+            recordId: id,
+            details: JSON.stringify({ type, timestamp }),
+            timestamp: new Date().toISOString()
+        });
+
         res.json({ message: 'Record updated successfully' });
     })
 );

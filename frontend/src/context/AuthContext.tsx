@@ -1,10 +1,20 @@
 "use client";
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { auth } from '../config/firebase';
+import {
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged,
+    User as FirebaseUser
+} from 'firebase/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface User {
+    uid: string;
+    email: string;
+    role: string;
     [key: string]: any;
 }
 
@@ -24,56 +34,59 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
 
     useEffect(() => {
-        // User data (non-sensitive) still in localStorage for UI state
-        const userData = localStorage.getItem('user');
-        if (userData) {
-            try {
-                setUser(JSON.parse(userData));
-            } catch {
-                localStorage.removeItem('user');
+        // Escuchador persistente de Firebase
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+            if (firebaseUser) {
+                try {
+                    // Si necesitamos refrescar o inyectar Rol, lo sacamos del backend
+                    const token = await firebaseUser.getIdToken();
+
+                    // Como Firebase Auth no tiene el "role" base a simple vista en el token, llamamos al backend
+                    // Opcionalmente podemos saltar esto y usar datos básicos.
+                    // Para MVP usaremos una llamada al me/login del backend solo para obtener info extra si la hubiera.
+                    const res = await fetch(`${API_URL}/api/users/${firebaseUser.uid}/shift`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    }).catch(() => null); // Ignoramos si falla
+
+                    setUser({
+                        uid: firebaseUser.uid,
+                        email: firebaseUser.email || '',
+                        role: 'user', // Default hasta setear custom claims bien en backend, si es admin se puede manejar.
+                    });
+                } catch (e) {
+                    console.error("Error al obtener perfil", e);
+                }
+            } else {
+                setUser(null);
             }
-        }
-        setLoading(false);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     const login = async (email: string, password: any) => {
         try {
-            const res = await fetch(`${API_URL}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ email, password }),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'Login failed');
-            }
-
-            const data = await res.json();
-            // Token is now in httpOnly cookie (not accessible via JS)
-            // Only store non-sensitive user info for UI
-            localStorage.setItem('user', JSON.stringify(data.user));
-            setUser(data.user);
+            // Firebase Auth Login
+            await signInWithEmailAndPassword(auth, email, password);
             router.push('/selection');
             return true;
-        } catch (error) {
-            throw error;
+        } catch (error: any) {
+            console.error("Firebase Login Error", error);
+            if (error.code === 'auth/invalid-credential') {
+                throw new Error("Credenciales inválidas");
+            }
+            throw new Error(error.message || 'Error al iniciar sesión');
         }
     };
 
     const logout = async () => {
         try {
-            await fetch(`${API_URL}/api/auth/logout`, {
-                method: 'POST',
-                credentials: 'include',
-            });
-        } catch {
-            // Continue logout even if API call fails
+            await signOut(auth);
+            router.push('/');
+        } catch (error) {
+            console.error("Logout Error", error);
         }
-        localStorage.removeItem('user');
-        setUser(null);
-        router.push('/');
     };
 
     const protectRoute = () => {

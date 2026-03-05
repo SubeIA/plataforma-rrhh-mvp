@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import db from '../db.js';
+import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
@@ -15,11 +15,15 @@ router.post(
     validate(createShiftSchema),
     asyncHandler(async (req, res) => {
         const { name, startTime, endTime, toleranceMinutes } = req.body;
-        const result = await db.run(
-            'INSERT INTO shifts (name, startTime, endTime, toleranceMinutes) VALUES (?, ?, ?, ?)',
-            [name, startTime, endTime, toleranceMinutes]
-        );
-        res.status(201).json({ id: result.id, message: 'Shift created successfully' });
+
+        const newDoc = await db.collection('shifts').add({
+            name,
+            startTime,
+            endTime,
+            toleranceMinutes: toleranceMinutes || 0
+        });
+
+        res.status(201).json({ id: newDoc.id, message: 'Shift created successfully' });
     })
 );
 
@@ -29,7 +33,8 @@ router.get(
     verifyToken,
     authorize('admin', 'hr'),
     asyncHandler(async (req, res) => {
-        const rows = await db.query('SELECT * FROM shifts');
+        const snapshot = await db.collection('shifts').get();
+        const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(rows);
     })
 );
@@ -42,11 +47,15 @@ router.post(
     validate(assignShiftSchema),
     asyncHandler(async (req, res) => {
         const { userId, shiftId, startDate, endDate } = req.body;
-        const result = await db.run(
-            'INSERT INTO user_shifts (userId, shiftId, startDate, endDate) VALUES (?, ?, ?, ?)',
-            [userId, shiftId, startDate, endDate]
-        );
-        res.status(201).json({ id: result.id, message: 'Shift assigned successfully' });
+
+        const newDoc = await db.collection('user_shifts').add({
+            userId,
+            shiftId,
+            startDate,
+            endDate: endDate || null
+        });
+
+        res.status(201).json({ id: newDoc.id, message: 'Shift assigned successfully' });
     })
 );
 

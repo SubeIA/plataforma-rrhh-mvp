@@ -1,11 +1,10 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
-import db from '../db.js';
+import { db, auth } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
 import { createUserSchema, updateUserSchema } from '../validators/users.js';
-import { ConflictError } from '../errors/AppError.js';
+import { ConflictError, AppError } from '../errors/AppError.js';
 
 const router = Router();
 
@@ -15,13 +14,25 @@ router.get(
     verifyToken,
     authorize('admin', 'hr'),
     asyncHandler(async (req, res) => {
-        const rows = await db.query(`
-            SELECT u.id, u.email, u.role, 
-                   p.fullName, p.phone, p.address, p.department, p.position, p.startDate
-            FROM users u
-            LEFT JOIN profiles p ON u.id = p.userId
-        `);
-        res.json(rows);
+        // Obtenemos todos los documentos de la colección 'users'
+        const usersSnapshot = await db.collection('users').get();
+
+        const usersPromises = usersSnapshot.docs.map(async (userDoc) => {
+            const userData = userDoc.data();
+            // Buscar perfil asociado
+            const profileDoc = await db.collection('profiles').doc(userDoc.id).get();
+            const profileData = profileDoc.exists ? profileDoc.data() : {};
+
+            return {
+                id: userDoc.id,
+                email: userData.email,
+                role: userData.role,
+                ...profileData, // Esparce fullName, phone, etc.
+            };
+        });
+
+        const allUsers = await Promise.all(usersPromises);
+        res.json(allUsers);
     })
 );
 
@@ -34,26 +45,44 @@ router.post(
     asyncHandler(async (req, res) => {
         const { email, password, role, fullName, phone, address, department, position, startDate } = req.body;
 
-        const salt = bcrypt.genSaltSync(10);
-        const hash = bcrypt.hashSync(password, salt);
-
         try {
-            const userResult = await db.run(
-                'INSERT INTO users (email, password, role) VALUES (?, ?, ?)',
-                [email, hash, role]
-            );
-            const userId = userResult.id;
+            // 1. Crear en Firebase Auth
+            const userRecord = await auth.createUser({ email, password });
+            const userId = userRecord.uid;
 
-            await db.run(
-                `INSERT INTO profiles (userId, fullName, phone, address, department, position, startDate)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [userId, fullName, phone, address, department, position, startDate]
-            );
+            // 2. Crear documento de rol en Colección users
+            await db.collection('users').doc(userId).set({
+                email,
+                role,
+                createdAt: new Date().toISOString()
+            });
 
-            await db.audit(req.user.id, 'CREATE', 'users', userId, { email, role, fullName, department });
+            // 3. Crear documento de perfil en Colección profiles
+            await db.collection('profiles').doc(userId).set({
+                fullName,
+                phone: phone || null,
+                address: address || null,
+                department: department || null,
+                position: position || null,
+                startDate: startDate || null
+            });
+
+            // Log format: (userId, action, tableName, recordId, details)
+            await db.collection('audit_log').add({
+                userId: req.user.uid,
+                action: 'CREATE',
+                tableName: 'users',
+                recordId: userId,
+                details: JSON.stringify({ email, role, fullName, department }),
+                timestamp: new Date().toISOString()
+            });
+
             res.status(201).json({ id: userId, email, role, fullName, department, position });
         } catch (err) {
-            throw new ConflictError('Error creating user/profile. Email might exist.');
+            if (err.code === 'auth/email-already-exists') {
+                throw new ConflictError('Error creating user/profile. Email might exist.');
+            }
+            throw new AppError('Server error creating user: ' + err.message, 500);
         }
     })
 );
@@ -68,23 +97,38 @@ router.put(
         const { id } = req.params;
         const { email, role, fullName, phone, address, department, position, startDate } = req.body;
 
-        await db.run('UPDATE users SET email = ?, role = ? WHERE id = ?', [email, role, id]);
+        try {
+            // Actualizar el correo en Auth si se envió
+            if (email) {
+                await auth.updateUser(id, { email });
+            }
 
-        await db.run(
-            `INSERT INTO profiles (userId, fullName, phone, address, department, position, startDate)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(userId) DO UPDATE SET
-             fullName = excluded.fullName,
-             phone = excluded.phone,
-             address = excluded.address,
-             department = excluded.department,
-             position = excluded.position,
-             startDate = excluded.startDate`,
-            [id, fullName, phone, address, department, position, startDate]
-        );
+            // Actualizar Colección Users (rol)
+            await db.collection('users').doc(id).set({ role, email }, { merge: true });
 
-        await db.audit(req.user.id, 'UPDATE', 'users', id, { email, role, fullName, department });
-        res.json({ message: 'User updated successfully' });
+            // Actualizar Colección Profiles
+            await db.collection('profiles').doc(id).set({
+                fullName,
+                phone: phone || null,
+                address: address || null,
+                department: department || null,
+                position: position || null,
+                startDate: startDate || null
+            }, { merge: true });
+
+            await db.collection('audit_log').add({
+                userId: req.user.uid,
+                action: 'UPDATE',
+                tableName: 'users',
+                recordId: id,
+                details: JSON.stringify({ email, role, fullName, department }),
+                timestamp: new Date().toISOString()
+            });
+
+            res.json({ message: 'User updated successfully' });
+        } catch (error) {
+            throw new AppError('Error updating user: ' + error.message, 500);
+        }
     })
 );
 
@@ -94,9 +138,29 @@ router.delete(
     verifyToken,
     authorize('admin'),
     asyncHandler(async (req, res) => {
-        await db.audit(req.user.id, 'DELETE', 'users', req.params.id);
-        await db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
-        res.json({ message: 'User deleted' });
+        const { id } = req.params;
+
+        try {
+            // Borramos de Firebase Auth
+            await auth.deleteUser(id);
+
+            // Borramos documentos (users y profiles)
+            await db.collection('users').doc(id).delete();
+            await db.collection('profiles').doc(id).delete();
+
+            await db.collection('audit_log').add({
+                userId: req.user.uid,
+                action: 'DELETE',
+                tableName: 'users',
+                recordId: id,
+                details: "Deleted user",
+                timestamp: new Date().toISOString()
+            });
+
+            res.json({ message: 'User deleted' });
+        } catch (error) {
+            throw new AppError('Error deleting user: ' + error.message, 500);
+        }
     })
 );
 
@@ -108,16 +172,37 @@ router.get(
         const { id } = req.params;
         const today = new Date().toISOString().split('T')[0];
 
-        const rows = await db.query(
-            `SELECT s.*, us.startDate, us.endDate
-             FROM user_shifts us
-             JOIN shifts s ON us.shiftId = s.id
-             WHERE us.userId = ? 
-             AND (us.endDate IS NULL OR us.endDate >= ?)
-             ORDER BY us.startDate DESC LIMIT 1`,
-            [id, today]
-        );
-        res.json(rows[0] || null);
+        // Buscar en la subcolección o colección principal los user_shifts
+        const userShiftsRef = db.collection('user_shifts');
+        const snapshot = await userShiftsRef
+            .where('userId', '==', id)
+            .get();
+
+        if (snapshot.empty) {
+            return res.json(null);
+        }
+
+        // Ya que Firestore no soporta joins ni "OR" cruzados avanzados de fechas fácilmente sin índices robustos
+        // Filtramos en memoria para este caso base (asumiendo que los turnos asignados no son millones por usuario al mismo tiempo)
+        const shifts = snapshot.docs.map(d => ({ sysId: d.id, ...d.data() }));
+
+        // Filtrar validos
+        const validShift = shifts.find(us => {
+            return !us.endDate || us.endDate >= today;
+        });
+
+        if (!validShift) return res.json(null);
+
+        // Obtener la info del turno base
+        const shiftDoc = await db.collection('shifts').doc(validShift.shiftId).get();
+        if (!shiftDoc.exists) return res.json(null);
+
+        res.json({
+            ...shiftDoc.data(),
+            id: shiftDoc.id,
+            startDate: validShift.startDate,
+            endDate: validShift.endDate
+        });
     })
 );
 

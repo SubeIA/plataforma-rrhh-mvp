@@ -1,8 +1,5 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import db from '../db.js';
-import config from '../config/env.js';
+import { db, auth } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import validate from '../middleware/validate.js';
 import { loginSchema, registerSchema } from '../validators/auth.js';
@@ -10,70 +7,48 @@ import { AppError, ConflictError } from '../errors/AppError.js';
 
 const router = Router();
 
-// POST /api/auth/login
-router.post(
-    '/login',
-    validate(loginSchema),
-    asyncHandler(async (req, res) => {
-        const { email, password } = req.body;
-
-        const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
-        if (!user) {
-            throw new AppError('User not found', 400);
-        }
-
-        const validPassword = bcrypt.compareSync(password, user.password);
-        if (!validPassword) {
-            throw new AppError('Invalid password', 400);
-        }
-
-        const token = jwt.sign(
-            { id: user.id, role: user.role },
-            config.jwtSecret,
-            { expiresIn: '1h' }
-        );
-
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: config.isProduction,
-            sameSite: config.isProduction ? 'none' : 'lax',
-            maxAge: 60 * 60 * 1000, // 1 hour
-        });
-
-        res.json({
-            user: { id: user.id, email: user.email, role: user.role },
-        });
-    })
-);
-
-// POST /api/auth/register
+// POST /api/auth/register (Para registro público inicial)
+// Si necesitas crear usuarios desde ADMIN, usa POST /api/users
 router.post(
     '/register',
     validate(registerSchema),
     asyncHandler(async (req, res) => {
         const { email, password } = req.body;
-        const salt = bcrypt.genSaltSync(10);
-        const hash = bcrypt.hashSync(password, salt);
 
         try {
-            const result = await db.run(
-                'INSERT INTO users (email, password) VALUES (?, ?)',
-                [email, hash]
-            );
-            res.status(201).json({ id: result.id, email });
+            // 1. Crear el usuario en Firebase Authentication
+            const userRecord = await auth.createUser({
+                email,
+                password,
+            });
+
+            // 2. Crear el documento base en Firestore (Colección users)
+            await db.collection('users').doc(userRecord.uid).set({
+                email: userRecord.email,
+                role: 'user', // Default rol
+                createdAt: new Date().toISOString()
+            });
+
+            res.status(201).json({ id: userRecord.uid, email });
         } catch (err) {
-            throw new ConflictError('Email already exists');
+            if (err.code === 'auth/email-already-exists') {
+                throw new ConflictError('Email already exists');
+            }
+            throw new AppError('Error creating user: ' + err.message, 500);
         }
     })
 );
 
-// POST /api/auth/logout
+// En Firebase, el Login y Logout lo maneja directamente el SDK Frontend (signInWithEmailAndPassword).
+// Ya no necesitamos endpoints de sesión manuales en el backend que generen JWTs
+// ni borren cookies porque Firebase maneja sus propios tokens de persistencia de sesión.
+// Se dejan solo por si quieres inyectar Claims personalizados al token en un futuro.
+
+router.post('/login', (req, res) => {
+    res.status(200).json({ message: "Por favor usa el SDK de Firebase Cliente para inicar sesión." });
+});
+
 router.post('/logout', (req, res) => {
-    res.clearCookie('token', {
-        httpOnly: true,
-        secure: config.isProduction,
-        sameSite: config.isProduction ? 'none' : 'lax',
-    });
     res.json({ message: 'Logged out successfully' });
 });
 
