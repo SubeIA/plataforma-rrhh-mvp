@@ -1,4 +1,4 @@
-const { z } = require('zod');
+import { z } from 'zod';
 
 const itamAssetSchema = z.object({
     user_id: z.string().min(1, 'Se requiere el ID del colaborador'),
@@ -10,6 +10,6 @@ const itamAssetSchema = z.object({
     status: z.enum(['Asignado', 'Devuelto']).default('Asignado')
 });
 
-module.exports = {
+export {
     itamAssetSchema
 };

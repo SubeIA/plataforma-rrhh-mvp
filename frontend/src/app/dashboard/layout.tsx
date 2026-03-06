@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
+import { ChatWidget } from '@/components/chat/ChatWidget';
 
 export default function DashboardLayout({
     children,
@@ -25,6 +26,7 @@ export default function DashboardLayout({
         { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', roles: ['Admin'] },
         { name: 'Admin Usuarios', href: '/dashboard/admin', roles: ['Admin'] },
         { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', roles: ['Admin'] },
+        { name: 'IA & Tokens', href: '/dashboard/admin/ai', roles: ['Admin'] },
     ];
 
     return (
@@ -73,6 +75,9 @@ export default function DashboardLayout({
             <main className="py-10">
                 {children}
             </main>
+
+            {/* Global Chatbot Widget */}
+            <ChatWidget />
         </div>
     );
 }

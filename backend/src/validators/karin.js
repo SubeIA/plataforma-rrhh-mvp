@@ -1,4 +1,4 @@
-const { z } = require('zod');
+import { z } from 'zod';
 
 const createKarinReportSchema = z.object({
     isAnonymous: z.boolean().default(false),
@@ -9,6 +9,6 @@ const createKarinReportSchema = z.object({
     }),
 });
 
-module.exports = {
+export {
     createKarinReportSchema
 };

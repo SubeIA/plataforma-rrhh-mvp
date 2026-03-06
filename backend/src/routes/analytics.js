@@ -1,9 +1,8 @@
-const express = require('express');
-const { firestore } = require('../config/firebase-config');
-const { requireAuth, requireRoles } = require('../middleware/auth');
-const asyncHandler = require('express-async-handler');
-const { getStartOfCurrentMonth, getEndOfCurrentMonth, getStartOfPreviousMonth, getEndOfPreviousMonth } = require('../utils/dates'); // Assume we have a date utility, but we can write logic directly here if needed.
-
+import express from 'express';
+import { db as firestore } from '../config/firebase-config.js';
+import { verifyToken as requireAuth, authorize as requireRoles } from '../middleware/auth.js';
+import asyncHandler from 'express-async-handler';
+import { getStartOfCurrentMonth, getEndOfCurrentMonth, getStartOfPreviousMonth, getEndOfPreviousMonth } from '../utils/dates.js';
 const router = express.Router();
 
 // Get start and end of current month
@@ -103,4 +102,4 @@ router.get(
     })
 );
 
-module.exports = router;
+export default router;

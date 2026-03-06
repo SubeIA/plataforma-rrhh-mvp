@@ -1,4 +1,4 @@
-const { z } = require('zod');
+import { z } from 'zod';
 
 // Simulating Firebase Timestamp type structure for validation purposes
 const TimestampSchema = z.object({
@@ -22,7 +22,7 @@ const updateMedicalLicenseStatusSchema = z.object({
     status: StatusEnum
 });
 
-module.exports = {
+export {
     createMedicalLicenseSchema,
     updateMedicalLicenseStatusSchema
 };

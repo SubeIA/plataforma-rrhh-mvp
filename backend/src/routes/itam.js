@@ -1,8 +1,8 @@
-const express = require('express');
-const { firestore } = require('../config/firebase-config');
-const { requireAuth, requireRoles } = require('../middleware/auth');
-const asyncHandler = require('express-async-handler');
-const { itamAssetSchema } = require('../validators/itam');
+import express from 'express';
+import { db as firestore } from '../config/firebase-config.js';
+import { verifyToken as requireAuth, authorize as requireRoles } from '../middleware/auth.js';
+import asyncHandler from 'express-async-handler';
+import { itamAssetSchema } from '../validators/itam.js';
 
 const router = express.Router();
 
@@ -120,4 +120,4 @@ router.get(
     })
 );
 
-module.exports = router;
+export default router;

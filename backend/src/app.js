@@ -21,6 +21,7 @@ import medicalLicensesRoutes from './routes/medical_licenses.js';
 import analyticsRoutes from './routes/analytics.js';
 import karinRoutes from './routes/karin.js';
 import itamRoutes from './routes/itam.js';
+import aiRoutes from './routes/ai.js';
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use('/api/medical-licenses', medicalLicensesRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/karin', karinRoutes);
 app.use('/api/itam', itamRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

@@ -1,9 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { db } = require('../firebase');
-const authMiddleware = require('../middleware/auth');
-const roleMiddleware = require('../middleware/role');
-const { createMedicalLicenseSchema, updateMedicalLicenseStatusSchema } = require('../validators/medical_licenses');
+import { db } from '../config/firebase-config.js';
+import { verifyToken as authMiddleware, authorize as roleMiddleware } from '../middleware/auth.js';
+import { createMedicalLicenseSchema, updateMedicalLicenseStatusSchema } from '../validators/medical_licenses.js';
 
 // Helper para parsear la fecha
 function parseStartDate(startDate) {
@@ -169,4 +168,4 @@ router.put('/:folio/status', authMiddleware, roleMiddleware(['admin', 'hr']), as
     }
 });
 
-module.exports = router;
+export default router;

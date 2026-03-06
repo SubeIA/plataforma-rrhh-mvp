@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Bell, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/lib/firebase';
+import { db } from '@/config/firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';

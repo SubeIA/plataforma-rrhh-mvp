@@ -1,9 +1,9 @@
-const express = require('express');
-const { firestore } = require('../config/firebase-config');
-const { requireAuth, requireRoles } = require('../middleware/auth');
-const asyncHandler = require('express-async-handler');
-const { createKarinReportSchema } = require('../validators/karin');
-const crypto = require('crypto');
+import express from 'express';
+import { db as firestore } from '../config/firebase-config.js';
+import { verifyToken as requireAuth, authorize as requireRoles } from '../middleware/auth.js';
+import asyncHandler from 'express-async-handler';
+import { createKarinReportSchema } from '../validators/karin.js';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -123,4 +123,4 @@ router.put(
     })
 );
 
-module.exports = router;
+export default router;
