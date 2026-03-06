@@ -6,10 +6,12 @@ import {
     signInWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
+    sendPasswordResetEmail,
     User as FirebaseUser
 } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const db = getFirestore(auth.app);
 
 interface User {
     uid: string;
@@ -20,9 +22,11 @@ interface User {
 
 interface AuthContextType {
     user: User | null;
-    login: (email: string, password: any) => Promise<boolean>;
-    logout: () => void;
+    token: string | null;
+    role: "Admin" | "Empleado" | "Jefatura" | null;
     loading: boolean;
+    logout: () => Promise<void>;
+    resetPassword: (email: string) => Promise<void>;
     protectRoute: () => void;
 }
 
@@ -30,6 +34,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(null);
+    const [role, setRole] = useState<"Admin" | "Empleado" | "Jefatura" | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
@@ -38,26 +44,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
             if (firebaseUser) {
                 try {
-                    // Si necesitamos refrescar o inyectar Rol, lo sacamos del backend
-                    const token = await firebaseUser.getIdToken();
-
-                    // Como Firebase Auth no tiene el "role" base a simple vista en el token, llamamos al backend
-                    // Opcionalmente podemos saltar esto y usar datos básicos.
-                    // Para MVP usaremos una llamada al me/login del backend solo para obtener info extra si la hubiera.
-                    const res = await fetch(`${API_URL}/api/users/${firebaseUser.uid}/shift`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    }).catch(() => null); // Ignoramos si falla
-
+                    // Set user details
                     setUser({
                         uid: firebaseUser.uid,
                         email: firebaseUser.email || '',
-                        role: 'user', // Default hasta setear custom claims bien en backend, si es admin se puede manejar.
+                        role: 'Usuario', // Temporary default, will be updated below
                     });
+
+                    // Force refresh token using getToken
+                    const jwt = await firebaseUser.getIdToken(true);
+                    setToken(jwt);
+
+                    // Get user role from Firestore
+                    const userDocRef = doc(db, 'users', firebaseUser.uid);
+                    const userDoc = await getDoc(userDocRef);
+
+                    if (userDoc.exists()) {
+                        const data = userDoc.data();
+                        const userRole = data.role || "Empleado";
+                        setRole(userRole);
+                        // Update user state with the correct role
+                        setUser(prevUser => prevUser ? { ...prevUser, role: userRole } : null);
+                    } else {
+                        // If no firestore document exists, default to Empleado
+                        setRole("Empleado");
+                        setUser(prevUser => prevUser ? { ...prevUser, role: "Empleado" } : null);
+                        console.warn('Usuario no encontrado en la colección users. Usando rol por defecto "Empleado".');
+                    }
                 } catch (e) {
-                    console.error("Error al obtener perfil", e);
+                    console.error("Error al obtener perfil o token desde Firestore", e);
+                    setRole(null);
+                    setToken(null);
+                    setUser(null);
                 }
             } else {
                 setUser(null);
+                setRole(null);
+                setToken(null);
             }
             setLoading(false);
         });
@@ -89,6 +112,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const resetPassword = async (email: string) => {
+        try {
+            await sendPasswordResetEmail(auth, email);
+        } catch (error: any) {
+            console.error("Password Reset Error", error);
+            throw new Error(error.message || 'Error al enviar correo de recuperación');
+        }
+    };
+
     const protectRoute = () => {
         if (!loading && !user) {
             router.push('/');
@@ -96,7 +128,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, protectRoute }}>
+        <AuthContext.Provider value={{ user, token, role, loading, logout, resetPassword, protectRoute }}>
             {children}
         </AuthContext.Provider>
     );

@@ -17,6 +17,10 @@ import usersRoutes from './routes/users.js';
 import requestsRoutes from './routes/requests.js';
 import shiftsRoutes from './routes/shifts.js';
 import reportsRoutes from './routes/reports.js';
+import medicalLicensesRoutes from './routes/medical_licenses.js';
+import analyticsRoutes from './routes/analytics.js';
+import karinRoutes from './routes/karin.js';
+import itamRoutes from './routes/itam.js';
 
 const app = express();
 
@@ -87,6 +91,10 @@ app.use('/api/users', usersRoutes);
 app.use('/api/requests', requestsRoutes);
 app.use('/api/shifts', shiftsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/medical-licenses', medicalLicensesRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/karin', karinRoutes);
+app.use('/api/itam', itamRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { LogIn, Mail, Lock, AlertCircle, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -104,7 +105,7 @@ export default function LoginPage() {
 
                     <div className="mt-8 text-center">
                         <p className="text-gray-400 text-sm">
-                            ¿Olvidaste tu contraseña? <span className="text-indigo-600 font-bold hover:underline cursor-pointer">Contacta a RRHH</span>
+                            ¿Olvidaste tu contraseña? <Link href="/recover-password" className="text-indigo-600 font-bold hover:underline cursor-pointer">Restaurar/Recuperar contraseña</Link>
                         </p>
                     </div>
                 </div>

@@ -2,6 +2,7 @@
 import { useAuth } from "@/context/AuthContext";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
 
 export default function DashboardLayout({
     children,
@@ -14,14 +15,16 @@ export default function DashboardLayout({
     if (!user) return <>{children}</>;
 
     const navItems = [
-        { name: 'Mi Asistencia', href: '/dashboard', roles: ['admin', 'hr', 'employee'] },
-        { name: 'Solicitudes', href: '/dashboard/requests', roles: ['admin', 'hr', 'employee'] },
-        { name: 'Mis Documentos', href: '/dashboard/documents', roles: ['admin', 'hr', 'employee'] },
-        { name: 'Gestión RRHH', href: '/dashboard/hr', roles: ['admin', 'hr'] },
-        { name: 'Gestión Solicitudes', href: '/dashboard/hr/requests', roles: ['admin', 'hr'] },
-        { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', roles: ['admin', 'hr'] },
-        { name: 'Admin Usuarios', href: '/dashboard/admin', roles: ['admin'] },
-        { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', roles: ['admin'] },
+        { name: 'Mi Asistencia', href: '/dashboard', roles: ['Admin', 'Jefatura', 'Empleado'] },
+        { name: 'Solicitudes', href: '/dashboard/requests', roles: ['Admin', 'Jefatura', 'Empleado'] },
+        { name: 'Licencias Médicas', href: '/dashboard/medical-licenses', roles: ['Admin', 'Jefatura', 'Empleado'] },
+        { name: 'Mis Documentos', href: '/dashboard/documents', roles: ['Admin', 'Jefatura', 'Empleado'] },
+        { name: 'Gestión RRHH', href: '/dashboard/hr', roles: ['Admin'] },
+        { name: 'Bandeja Solicitudes', href: '/dashboard/hr/requests', roles: ['Admin', 'Jefatura'] },
+        { name: 'Licencias (Admin)', href: '/dashboard/hr/medical-licenses', roles: ['Admin'] },
+        { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', roles: ['Admin'] },
+        { name: 'Admin Usuarios', href: '/dashboard/admin', roles: ['Admin'] },
+        { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', roles: ['Admin'] },
     ];
 
     return (
@@ -53,8 +56,9 @@ export default function DashboardLayout({
                                 })}
                             </div>
                         </div>
-                        <div className="flex items-center">
-                            <span className="text-sm text-gray-700 mr-4">Hola, {user.email}</span>
+                        <div className="flex items-center gap-4">
+                            <span className="text-sm text-gray-700">Hola, {user.email}</span>
+                            <NotificationsPanel />
                             <button
                                 onClick={logout}
                                 className="text-sm text-red-600 hover:text-red-800"
