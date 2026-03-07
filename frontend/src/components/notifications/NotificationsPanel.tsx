@@ -33,17 +33,30 @@ export function NotificationsPanel() {
             orderBy('createdAt', 'desc')
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const notifs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Notification[];
+        let unsubscribe: (() => void) | undefined;
 
-            setNotifications(notifs);
-            setUnreadCount(notifs.filter(n => !n.read).length);
-        });
+        try {
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                const notifs = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as Notification[];
 
-        return () => unsubscribe();
+                setNotifications(notifs);
+                setUnreadCount(notifs.filter(n => !n.read).length);
+            }, (error) => {
+                console.warn('Advertencia en Notificaciones (Índice Firestore faltante probablemente):', error.message);
+                // Si falla por índice, mostramos que no hay notificaciones para no colapsar la app
+                setNotifications([]);
+                setUnreadCount(0);
+            });
+        } catch (error: any) {
+            console.warn('Error sincrono en Notificaciones:', error?.message);
+        }
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, [user]);
 
     // Close panel on click outside

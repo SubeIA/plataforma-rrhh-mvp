@@ -1,9 +1,28 @@
 "use client";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
 import { ChatWidget } from '@/components/chat/ChatWidget';
+import {
+    Clock,
+    FileText,
+    Stethoscope,
+    Folder,
+    Users,
+    Inbox,
+    FileSpreadsheet,
+    ShieldAlert,
+    Settings,
+    Cpu,
+    Calendar,
+    Briefcase,
+    Menu,
+    X,
+    LogOut,
+    UserCircle
+} from 'lucide-react';
 
 export default function DashboardLayout({
     children,
@@ -12,69 +31,138 @@ export default function DashboardLayout({
 }) {
     const { user, logout } = useAuth();
     const pathname = usePathname();
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     if (!user) return <>{children}</>;
 
     const navItems = [
-        { name: 'Mi Asistencia', href: '/dashboard', roles: ['Admin', 'Jefatura', 'Empleado'] },
-        { name: 'Solicitudes', href: '/dashboard/requests', roles: ['Admin', 'Jefatura', 'Empleado'] },
-        { name: 'Licencias Médicas', href: '/dashboard/medical-licenses', roles: ['Admin', 'Jefatura', 'Empleado'] },
-        { name: 'Mis Documentos', href: '/dashboard/documents', roles: ['Admin', 'Jefatura', 'Empleado'] },
-        { name: 'Gestión RRHH', href: '/dashboard/hr', roles: ['Admin'] },
-        { name: 'Bandeja Solicitudes', href: '/dashboard/hr/requests', roles: ['Admin', 'Jefatura'] },
-        { name: 'Licencias (Admin)', href: '/dashboard/hr/medical-licenses', roles: ['Admin'] },
-        { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', roles: ['Admin'] },
-        { name: 'Admin Usuarios', href: '/dashboard/admin', roles: ['Admin'] },
-        { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', roles: ['Admin'] },
-        { name: 'IA & Tokens', href: '/dashboard/admin/ai', roles: ['Admin'] },
+        { name: 'Mi Asistencia', href: '/dashboard', icon: Clock, roles: ['Admin', 'Jefatura', 'Empleado'] },
+        { name: 'Solicitudes', href: '/dashboard/requests', icon: FileText, roles: ['Admin', 'Jefatura', 'Empleado'] },
+        { name: 'Licencias Médicas', href: '/dashboard/medical-licenses', icon: Stethoscope, roles: ['Admin', 'Jefatura', 'Empleado'] },
+        { name: 'Mis Documentos', href: '/dashboard/documents', icon: Folder, roles: ['Admin', 'Jefatura', 'Empleado'] },
+        { name: 'Gestión RRHH', href: '/dashboard/hr', icon: Users, roles: ['Admin'] },
+        { name: 'Bandeja Solicitudes', href: '/dashboard/hr/requests', icon: Inbox, roles: ['Admin', 'Jefatura'] },
+        { name: 'Licencias (Admin)', href: '/dashboard/hr/medical-licenses', icon: Briefcase, roles: ['Admin'] },
+        { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', icon: FileSpreadsheet, roles: ['Admin'] },
+        { name: 'Gestión ITAM', href: '/dashboard/itam', icon: Cpu, roles: ['Admin'] },
+        { name: 'Denuncias (Ley Karin)', href: '/dashboard/karin', icon: ShieldAlert, roles: ['Admin'] },
+        { name: 'Admin Usuarios', href: '/dashboard/admin', icon: Settings, roles: ['Admin'] },
+        { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', icon: Calendar, roles: ['Admin'] },
+        { name: 'IA & Tokens', href: '/dashboard/admin/ai', icon: Cpu, roles: ['Admin'] },
     ];
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            {/* Top Navigation */}
-            <nav className="bg-white shadow">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16">
-                        <div className="flex">
-                            <div className="flex-shrink-0 flex items-center">
-                                <span className="font-bold text-xl text-indigo-600">Portal RRHH</span>
+        <div className="min-h-screen bg-gray-50 flex">
+            {/* Mobile Sidebar Overlay */}
+            {isMobileMenuOpen && (
+                <div
+                    className="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
+            )}
+
+            {/* Sidebar */}
+            <aside
+                className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white shadow-xl flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0
+                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            >
+                <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 bg-indigo-600">
+                    <span className="font-bold text-xl text-white">Portal RRHH</span>
+                    <button
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="lg:hidden text-white hover:text-gray-200"
+                    >
+                        <X size={24} />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
+                    <div className="px-4 mb-6">
+                        <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                            <UserCircle className="text-indigo-600 h-10 w-10" />
+                            <div className="flex flex-col overflow-hidden">
+                                <span className="text-sm font-semibold text-gray-900 truncate" title={user.email}>{user.email}</span>
+                                <span className="text-xs text-indigo-600 font-bold uppercase">{user.role}</span>
                             </div>
-                            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                                {navItems.map((item) => {
-                                    if (!item.roles.includes(user.role)) return null;
-                                    const isActive = pathname.startsWith(item.href);
-                                    return (
-                                        <Link
-                                            key={item.href}
-                                            href={item.href}
-                                            className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${isActive
-                                                ? 'border-indigo-500 text-gray-900'
-                                                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                                                }`}
-                                        >
-                                            {item.name}
-                                        </Link>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <span className="text-sm text-gray-700">Hola, {user.email}</span>
-                            <NotificationsPanel />
-                            <button
-                                onClick={logout}
-                                className="text-sm text-red-600 hover:text-red-800"
-                            >
-                                Salir
-                            </button>
                         </div>
                     </div>
-                </div>
-            </nav>
 
-            <main className="py-10">
-                {children}
-            </main>
+                    <nav className="px-3 space-y-1">
+                        {navItems.map((item) => {
+                            if (!item.roles.includes(user.role)) return null;
+                            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+
+                            // Special exact match for /dashboard
+                            const isExactMatch = item.href === '/dashboard' ? pathname === '/dashboard' : isActive;
+
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isExactMatch
+                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                            : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
+                                        }`}
+                                >
+                                    <item.icon
+                                        className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${isExactMatch ? 'text-indigo-100' : 'text-gray-400 group-hover:text-indigo-600'
+                                            }`}
+                                    />
+                                    <span className="truncate">{item.name}</span>
+                                </Link>
+                            );
+                        })}
+                    </nav>
+                </div>
+
+                <div className="p-4 border-t border-gray-100">
+                    <button
+                        onClick={logout}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors"
+                    >
+                        <LogOut size={18} />
+                        Cerrar Sesión
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                {/* Mobile Header */}
+                <header className="bg-white shadow-sm lg:hidden relative z-30">
+                    <div className="px-4 h-16 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setIsMobileMenuOpen(true)}
+                                className="p-2 -ml-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 focus:outline-none"
+                            >
+                                <Menu size={24} />
+                            </button>
+                            <span className="font-bold text-lg text-indigo-600 truncate">Portal RRHH</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <NotificationsPanel />
+                        </div>
+                    </div>
+                </header>
+
+                {/* Desktop Header */}
+                <header className="hidden lg:flex bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 h-16 items-center justify-between px-8 sticky top-0 z-30">
+                    <div className="text-gray-500 text-sm font-medium">
+                        {pathname.split('/').filter(Boolean).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' / ') || 'Inicio'}
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <NotificationsPanel />
+                    </div>
+                </header>
+
+                <main className="flex-1 overflow-auto bg-gray-50/50 p-4 sm:p-6 lg:p-8 custom-scrollbar">
+                    <div className="max-w-7xl mx-auto w-full">
+                        {children}
+                    </div>
+                </main>
+            </div>
 
             {/* Global Chatbot Widget */}
             <ChatWidget />
