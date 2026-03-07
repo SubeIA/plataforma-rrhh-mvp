@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cada usuario puede leer su propio perfil
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Admin puede leer y escribir cualquier perfil
+      allow read, write: if request.auth != null &&
+                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+      // El propio usuario puede actualizar su perfil (excepto rol y status)
+      allow update: if request.auth != null && request.auth.uid == userId &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status']);
+      // Admin puede crear documentos de usuario
+      allow create: if request.auth != null &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // Logs de asistencia
+    match /attendance_logs/{logId} {
+      allow read: if request.auth != null &&
+                     (resource.data.user_id == request.auth.uid ||
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin");
+      allow create: if request.auth != null;
+      allow update: if request.auth != null &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // Resto de colecciones: solo usuarios autenticados
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

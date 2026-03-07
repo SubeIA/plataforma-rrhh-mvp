@@ -6,9 +6,10 @@ interface UserModalProps {
     onClose: () => void;
     onSubmit: (userData: any) => Promise<void>;
     initialData?: any;
+    isSaving?: boolean;
 }
 
-export default function UserModal({ isOpen, onClose, onSubmit, initialData }: UserModalProps) {
+export default function UserModal({ isOpen, onClose, onSubmit, initialData, isSaving = false }: UserModalProps) {
     const [formData, setFormData] = useState({
         email: "",
         password: "",
@@ -112,8 +113,11 @@ export default function UserModal({ isOpen, onClose, onSubmit, initialData }: Us
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-4">
-                            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">Cancelar</button>
-                            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Guardar</button>
+                            <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 disabled:opacity-50">Cancelar</button>
+                            <button type="submit" disabled={isSaving} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-2">
+                                {isSaving && <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                                {isSaving ? 'Guardando...' : 'Guardar'}
+                            </button>
                         </div>
                     </form>
                 </div>

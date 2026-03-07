@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "gestion-de-personas-sube-ia"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

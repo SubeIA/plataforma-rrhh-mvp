@@ -1,9 +1,31 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { apiFetch } from "@/lib/api";
+import { auth, app } from "@/config/firebase";
+import {
+    getFirestore,
+    collection,
+    getDocs,
+    doc,
+    setDoc,
+    updateDoc,
+    query,
+    orderBy,
+    limit,
+} from "firebase/firestore";
+import {
+    initializeApp,
+    getApps,
+    deleteApp,
+} from "firebase/app";
+import {
+    getAuth,
+    createUserWithEmailAndPassword,
+} from "firebase/auth";
 import UserModal from "./components/UserModal";
 import { Users, History, UserPlus, Edit3, Trash2, Shield, LayoutGrid, List, MapPin } from "lucide-react";
+
+const db = getFirestore(app);
 
 export default function AdminPage() {
     const { user, protectRoute, loading } = useAuth();
@@ -13,38 +35,52 @@ export default function AdminPage() {
     const [editingUser, setEditingUser] = useState<any>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [fetchError, setFetchError] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
 
     const fetchUsers = async () => {
         try {
-            const res = await apiFetch('/api/users');
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                setUsers(data);
-            } else {
-                setUsers([]);
-            }
+            const usersSnap = await getDocs(collection(db, 'users'));
+            const userList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setUsers(userList);
         } catch (error) {
             console.error("Error fetching users:", error);
-            setFetchError("No se pudieron cargar los datos. Verifique su sesión.");
+            setFetchError("No se pudieron cargar los usuarios desde Firestore.");
         }
     };
 
     const fetchAttendance = async () => {
         try {
-            const res = await apiFetch('/api/attendance/all');
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                setAttendance(data);
+            const q = query(
+                collection(db, 'attendance_logs'),
+                orderBy('timestamp', 'desc'),
+                limit(30)
+            );
+            const snap = await getDocs(q);
+            const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setAttendance(records);
+        } catch (error: any) {
+            // Si falta un índice, Firestore devuelve un link para crearlo. Lo mostramos.
+            if (error?.message?.includes('index')) {
+                console.warn("Índice Firestore faltante para attendance_logs. Creando query sin orderBy...");
+                // Fallback: sin ordenamiento para no bloquear la carga
+                try {
+                    const snap = await getDocs(collection(db, 'attendance_logs'));
+                    const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    // Ordenar manualmente y tomar los últimos 30
+                    records.sort((a: any, b: any) => {
+                        const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                        const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                        return tb - ta;
+                    });
+                    setAttendance(records.slice(0, 30));
+                } catch (e2) {
+                    console.error("Error fetching attendance fallback:", e2);
+                }
             } else {
-                setAttendance([]);
+                console.error("Error fetching attendance:", error);
             }
-        } catch (error) {
-            console.error("Error fetching attendance:", error);
-            setFetchError("No se pudieron cargar los datos. Verifique su sesión.");
         }
-    }
+    };
 
     useEffect(() => {
         protectRoute();
@@ -59,41 +95,72 @@ export default function AdminPage() {
         setIsModalOpen(true);
     };
 
-    const handleEditUser = (user: any) => {
-        setEditingUser(user);
+    const handleEditUser = (u: any) => {
+        setEditingUser(u);
         setIsModalOpen(true);
     };
 
-    const handleDeleteUser = async (id: number) => {
-        if (!confirm("¿Estás seguro de que quieres eliminar este usuario?")) return;
+    const handleDeleteUser = async (userId: string) => {
+        if (!confirm("¿Estás seguro? El usuario quedará marcado como inactivo.")) return;
         try {
-            await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+            await updateDoc(doc(db, 'users', userId), { status: 'inactive' });
             fetchUsers();
         } catch (error) {
-            console.error("Error deleting user:", error);
+            console.error("Error deactivating user:", error);
         }
     };
 
     const handleSaveUser = async (formData: any) => {
-        const url = editingUser
-            ? `/api/users/${editingUser.id}`
-            : `/api/users`;
-        const method = editingUser ? 'PUT' : 'POST';
-
+        setIsSaving(true);
         try {
-            const res = await apiFetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+            if (editingUser) {
+                // Editar: solo actualizar campos en Firestore (no cambiar contraseña desde aquí)
+                const { password, ...dataWithoutPassword } = formData;
+                await updateDoc(doc(db, 'users', editingUser.id), {
+                    ...dataWithoutPassword,
+                    updatedAt: new Date().toISOString(),
+                });
+            } else {
+                // Crear: usar una app secundaria de Firebase para no perder la sesión del admin
+                const secondaryAppName = `secondary-${Date.now()}`;
+                const secondaryApp = initializeApp(app.options, secondaryAppName);
+                const secondaryAuth = getAuth(secondaryApp);
 
-            if (!res.ok) throw new Error("Failed to save user");
+                try {
+                    const cred = await createUserWithEmailAndPassword(secondaryAuth, formData.email, formData.password);
+                    const newUid = cred.user.uid;
 
-            fetchUsers();
+                    // Guardar perfil en Firestore
+                    await setDoc(doc(db, 'users', newUid), {
+                        uid: newUid,
+                        email: formData.email,
+                        fullName: formData.fullName || '',
+                        role: formData.role || 'user',
+                        department: formData.department || '',
+                        position: formData.position || '',
+                        phone: formData.phone || '',
+                        address: formData.address || '',
+                        startDate: formData.startDate || '',
+                        status: 'active',
+                        createdAt: new Date().toISOString(),
+                    });
+                } finally {
+                    // Siempre limpiar la app secundaria
+                    await deleteApp(secondaryApp);
+                }
+            }
+
+            await fetchUsers();
             setIsModalOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error saving user:", error);
-            alert("Error al guardar usuario");
+            if (error.code === 'auth/email-already-in-use') {
+                alert("Ese correo ya está registrado en Firebase Auth.");
+            } else {
+                alert("Error al guardar usuario: " + (error.message || 'Intenta de nuevo.'));
+            }
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -182,7 +249,7 @@ export default function AdminPage() {
                                         <td className="px-4 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold uppercase">
-                                                    {(u.fullName || u.email).substring(0, 2)}
+                                                    {(u.fullName || u.email || '?').substring(0, 2)}
                                                 </div>
                                                 <div>
                                                     <div className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{u.fullName || "Sin nombre"}</div>
@@ -195,9 +262,12 @@ export default function AdminPage() {
                                             <div className="text-gray-400 text-xs">{u.department}</div>
                                         </td>
                                         <td className="px-4 py-4">
-                                            <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase ${u.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                            <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase ${u.role === 'admin' ? 'bg-amber-100 text-amber-700' : u.role === 'hr' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                                 {u.role}
                                             </span>
+                                            {u.status === 'inactive' && (
+                                                <span className="ml-1 px-2 py-1 rounded-md text-xs font-bold bg-gray-100 text-gray-500">inactivo</span>
+                                            )}
                                         </td>
                                         <td className="px-4 py-4 text-right space-x-1">
                                             <button
@@ -210,7 +280,7 @@ export default function AdminPage() {
                                             <button
                                                 onClick={() => handleDeleteUser(u.id)}
                                                 className="p-2 hover:bg-white rounded-lg text-rose-400 hover:text-rose-600 transition-all"
-                                                title="Eliminar"
+                                                title="Desactivar"
                                             >
                                                 <Trash2 size={18} />
                                             </button>
@@ -228,7 +298,7 @@ export default function AdminPage() {
                     </div>
                 </div>
 
-                {/* Reports/Attendance Section */}
+                {/* Activity Section */}
                 <div className="glass-card rounded-3xl p-8 flex flex-col h-[700px]">
                     <div className="flex items-center gap-3 mb-8">
                         <History className="text-indigo-600" />
@@ -257,7 +327,7 @@ export default function AdminPage() {
                                 </div>
                                 <div className="flex justify-between items-end">
                                     <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
-                                        {new Date(rec.timestamp).toLocaleDateString()}
+                                        {rec.timestamp ? new Date(rec.timestamp).toLocaleDateString() : '-'}
                                         {rec.accuracy && (
                                             <span className="ml-2 lowercase font-normal italic">
                                                 (±{Math.round(rec.accuracy)}m)
@@ -265,7 +335,7 @@ export default function AdminPage() {
                                         )}
                                     </div>
                                     <div className="text-sm font-bold text-indigo-600">
-                                        {new Date(rec.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {rec.timestamp ? new Date(rec.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                                     </div>
                                 </div>
                             </div>
@@ -286,6 +356,7 @@ export default function AdminPage() {
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleSaveUser}
                 initialData={editingUser}
+                isSaving={isSaving}
             />
         </div>
     );
