@@ -36,19 +36,28 @@ export default function DashboardLayout({
     if (!user) return <>{children}</>;
 
     const navItems = [
-        { name: 'Mi Asistencia', href: '/dashboard', icon: Clock, roles: ['Admin', 'Jefatura', 'Empleado'] },
-        { name: 'Solicitudes', href: '/dashboard/requests', icon: FileText, roles: ['Admin', 'Jefatura', 'Empleado'] },
-        { name: 'Licencias Médicas', href: '/dashboard/medical-licenses', icon: Stethoscope, roles: ['Admin', 'Jefatura', 'Empleado'] },
-        { name: 'Mis Documentos', href: '/dashboard/documents', icon: Folder, roles: ['Admin', 'Jefatura', 'Empleado'] },
-        { name: 'Gestión RRHH', href: '/dashboard/hr', icon: Users, roles: ['Admin'] },
-        { name: 'Bandeja Solicitudes', href: '/dashboard/hr/requests', icon: Inbox, roles: ['Admin', 'Jefatura'] },
-        { name: 'Licencias (Admin)', href: '/dashboard/hr/medical-licenses', icon: Briefcase, roles: ['Admin'] },
-        { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', icon: FileSpreadsheet, roles: ['Admin'] },
-        { name: 'Gestión ITAM', href: '/dashboard/itam', icon: Cpu, roles: ['Admin'] },
-        { name: 'Denuncias (Ley Karin)', href: '/dashboard/karin', icon: ShieldAlert, roles: ['Admin'] },
-        { name: 'Admin Usuarios', href: '/dashboard/admin', icon: Settings, roles: ['Admin'] },
-        { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', icon: Calendar, roles: ['Admin'] },
-        { name: 'IA & Tokens', href: '/dashboard/admin/ai', icon: Cpu, roles: ['Admin'] },
+        // Empleado Options
+        { name: 'Mi Asistencia', href: '/dashboard', icon: Clock, roles: ['admin', 'hr', 'jefatura', 'user'] },
+        { name: 'Solicitudes', href: '/dashboard/requests', icon: FileText, roles: ['admin', 'hr', 'jefatura', 'user'] },
+        { name: 'Licencias Médicas', href: '/dashboard/medical-licenses', icon: Stethoscope, roles: ['admin', 'hr', 'jefatura', 'user'] },
+        { name: 'Mis Documentos', href: '/dashboard/documents', icon: Folder, roles: ['admin', 'hr', 'jefatura', 'user'] },
+        { name: 'ITAM', href: '/dashboard/itam', icon: Cpu, roles: ['admin', 'hr', 'jefatura', 'user'] },
+        { name: 'Ley Karin', href: '/dashboard/karin', icon: ShieldAlert, roles: ['admin', 'hr', 'jefatura', 'user'] },
+
+        // HR Options
+        { name: 'Gestión RRHH', href: '/dashboard/hr', icon: Users, roles: ['admin', 'hr'] },
+        { name: 'Bandeja Solicitudes', href: '/dashboard/hr/requests', icon: Inbox, roles: ['admin', 'hr', 'jefatura'] },
+        { name: 'Licencias (RRHH)', href: '/dashboard/hr/medical-licenses', icon: Briefcase, roles: ['admin', 'hr'] },
+        { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', icon: FileSpreadsheet, roles: ['admin', 'hr'] },
+        { name: 'Analíticas', href: '/dashboard/hr/analytics', icon: Cpu, roles: ['admin', 'hr'] },
+        { name: 'Documentos', href: '/dashboard/hr/documents', icon: Folder, roles: ['admin', 'hr'] },
+        { name: 'Gestión ITAM', href: '/dashboard/hr/itam', icon: Cpu, roles: ['admin', 'hr'] },
+        { name: 'Gestión Ley Karin', href: '/dashboard/hr/karin', icon: ShieldAlert, roles: ['admin', 'hr'] },
+
+        // Admin Options
+        { name: 'Admin Usuarios', href: '/dashboard/admin', icon: Settings, roles: ['admin'] },
+        { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', icon: Calendar, roles: ['admin'] },
+        { name: 'IA & Tokens', href: '/dashboard/admin/ai', icon: Cpu, roles: ['admin'] },
     ];
 
     return (
@@ -101,8 +110,8 @@ export default function DashboardLayout({
                                     href={item.href}
                                     onClick={() => setIsMobileMenuOpen(false)}
                                     className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isExactMatch
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                            : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
+                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                        : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
                                         }`}
                                 >
                                     <item.icon
