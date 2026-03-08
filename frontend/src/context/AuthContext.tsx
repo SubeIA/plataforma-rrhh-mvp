@@ -45,13 +45,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
             if (firebaseUser) {
                 try {
-                    // Set user details
-                    setUser({
-                        uid: firebaseUser.uid,
-                        email: firebaseUser.email || '',
-                        role: 'Usuario', // Temporary default, will be updated below
-                    });
-
                     // Force refresh token using getToken
                     const jwt = await firebaseUser.getIdToken(true);
                     setToken(jwt);
@@ -60,18 +53,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     const userDocRef = doc(db, 'users', firebaseUser.uid);
                     const userDoc = await getDoc(userDocRef);
 
+                    let userRole: "Admin" | "Empleado" | "Jefatura" | "admin" | "hr" | "jefatura" | "user" | string = "Empleado";
+
                     if (userDoc.exists()) {
                         const data = userDoc.data();
-                        const userRole = data.role || "Empleado";
-                        setRole(userRole);
-                        // Update user state with the correct role
-                        setUser(prevUser => prevUser ? { ...prevUser, role: userRole } : null);
+                        userRole = data.role || "Empleado";
                     } else {
-                        // If no firestore document exists, default to Empleado
-                        setRole("Empleado");
-                        setUser(prevUser => prevUser ? { ...prevUser, role: "Empleado" } : null);
                         console.warn('Usuario no encontrado en la colección users. Usando rol por defecto "Empleado".');
                     }
+
+                    setRole(userRole as any);
+                    // Update user state with the correct role
+                    setUser({
+                        uid: firebaseUser.uid,
+                        email: firebaseUser.email || '',
+                        role: userRole,
+                    });
                 } catch (e) {
                     console.error("Error al obtener perfil o token desde Firestore", e);
                     setRole(null);

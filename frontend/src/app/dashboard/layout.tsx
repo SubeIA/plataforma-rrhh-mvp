@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import {
@@ -29,11 +29,27 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
-    const { user, logout } = useAuth();
+    const { user, loading, logout } = useAuth();
     const pathname = usePathname();
+    const router = useRouter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    if (!user) return <>{children}</>;
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/');
+        }
+    }, [user, loading, router]);
+
+    if (loading || !user) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+                    <p className="text-gray-500 font-medium animate-pulse">Cargando portal...</p>
+                </div>
+            </div>
+        );
+    }
 
     const navItems = [
         // Empleado Options
