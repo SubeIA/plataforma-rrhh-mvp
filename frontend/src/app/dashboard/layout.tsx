@@ -40,17 +40,6 @@ export default function DashboardLayout({
         }
     }, [user, loading, router]);
 
-    if (loading || !user) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
-                    <p className="text-gray-500 font-medium animate-pulse">Cargando portal...</p>
-                </div>
-            </div>
-        );
-    }
-
     const navItems = [
         // Empleado Options
         { name: 'Mi Asistencia', href: '/dashboard', icon: Clock, roles: ['admin', 'hr', 'jefatura', 'user'] },
@@ -78,53 +67,103 @@ export default function DashboardLayout({
 
     return (
         <div className="min-h-screen bg-gray-50 flex">
-            {/* Mobile Sidebar Overlay */}
-            {isMobileMenuOpen && (
+            {/* Mobile Sidebar Overlay & Drawer */}
+            <div className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+                {/* Backdrop */}
                 <div
-                    className="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
+                    className={`fixed inset-0 bg-gray-900/50 transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0'}`}
                     onClick={() => setIsMobileMenuOpen(false)}
                 />
-            )}
 
-            {/* Sidebar */}
-            <aside
-                className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white shadow-xl flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0
-                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
-            >
+                {/* Drawer */}
+                <aside
+                    className={`fixed top-0 bottom-0 left-0 w-64 bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                >
+                    <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 bg-indigo-600">
+                        <span className="font-bold text-xl text-white">Portal RRHH</span>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="text-white hover:text-gray-200"
+                        >
+                            <X size={24} />
+                        </button>
+                    </div>
+                    {/* Sidebar Content */}
+                    <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
+                        <div className="px-4 mb-6">
+                            <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                                <UserCircle className="text-indigo-600 h-10 w-10" />
+                                <div className="flex flex-col overflow-hidden">
+                                    <span className="text-sm font-semibold text-gray-900 truncate" title={user?.email || ''}>{user?.email || 'Cargando...'}</span>
+                                    <span className="text-xs text-indigo-600 font-bold uppercase">{user?.role || '...'}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <nav className="px-3 space-y-1">
+                            {navItems.map((item) => {
+                                if (!user || (!item.roles.includes(user.role) && !item.roles.includes('user'))) return null;
+                                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                                const isExactMatch = item.href === '/dashboard' ? pathname === '/dashboard' : isActive;
+
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                        className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isExactMatch
+                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                            : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
+                                            }`}
+                                    >
+                                        <item.icon
+                                            className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${isExactMatch ? 'text-indigo-100' : 'text-gray-400 group-hover:text-indigo-600'
+                                                }`}
+                                        />
+                                        <span className="truncate">{item.name}</span>
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                    <div className="p-4 border-t border-gray-100">
+                        <button
+                            onClick={logout}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors"
+                        >
+                            <LogOut size={18} />
+                            Cerrar Sesión
+                        </button>
+                    </div>
+                </aside>
+            </div>
+
+            {/* Desktop Sidebar (Persistent) */}
+            <aside className="hidden lg:flex flex-col w-64 bg-white shadow-xl flex-shrink-0 z-20">
                 <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 bg-indigo-600">
                     <span className="font-bold text-xl text-white">Portal RRHH</span>
-                    <button
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="lg:hidden text-white hover:text-gray-200"
-                    >
-                        <X size={24} />
-                    </button>
                 </div>
-
                 <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
                     <div className="px-4 mb-6">
                         <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
                             <UserCircle className="text-indigo-600 h-10 w-10" />
                             <div className="flex flex-col overflow-hidden">
-                                <span className="text-sm font-semibold text-gray-900 truncate" title={user.email}>{user.email}</span>
-                                <span className="text-xs text-indigo-600 font-bold uppercase">{user.role}</span>
+                                <span className="text-sm font-semibold text-gray-900 truncate" title={user?.email || ''}>{user?.email || 'Cargando...'}</span>
+                                <span className="text-xs text-indigo-600 font-bold uppercase">{user?.role || '...'}</span>
                             </div>
                         </div>
                     </div>
 
                     <nav className="px-3 space-y-1">
                         {navItems.map((item) => {
-                            if (!item.roles.includes(user.role)) return null;
+                            if (!user || (!item.roles.includes(user.role) && !item.roles.includes('user'))) return null;
                             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-
-                            // Special exact match for /dashboard
                             const isExactMatch = item.href === '/dashboard' ? pathname === '/dashboard' : isActive;
 
                             return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    onClick={() => setIsMobileMenuOpen(false)}
                                     className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isExactMatch
                                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
                                         : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
@@ -140,7 +179,6 @@ export default function DashboardLayout({
                         })}
                     </nav>
                 </div>
-
                 <div className="p-4 border-t border-gray-100">
                     <button
                         onClick={logout}
@@ -184,7 +222,14 @@ export default function DashboardLayout({
 
                 <main className="flex-1 overflow-auto bg-gray-50/50 p-4 sm:p-6 lg:p-8 custom-scrollbar">
                     <div className="max-w-7xl mx-auto w-full">
-                        {children}
+                        {loading || !user ? (
+                            <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
+                                <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+                                <p className="text-gray-500 font-medium animate-pulse">Cargando portal...</p>
+                            </div>
+                        ) : (
+                            children
+                        )}
                     </div>
                 </main>
             </div>
