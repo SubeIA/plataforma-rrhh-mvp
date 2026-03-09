@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { FileHeart, Clock, CheckCircle, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { apiFetch } from '@/lib/api';
 
 interface MedicalLicense {
     id: string; // Folio
@@ -28,7 +29,7 @@ export default function EmployeeMedicalLicensesPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/medical-licenses', {
+            const res = await apiFetch('/api/medical-licenses', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
