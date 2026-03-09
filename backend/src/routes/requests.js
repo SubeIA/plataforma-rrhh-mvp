@@ -4,6 +4,7 @@ import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
 import { createRequestSchema, updateRequestStatusSchema } from '../validators/requests.js';
+import { ROLES, MANAGEMENT_ROLES } from '../constants/roles.js';
 
 const router = Router();
 
@@ -38,14 +39,16 @@ router.post(
     })
 );
 
-// GET /api/requests — List requests (all for HR/Admin, own for user)
+// GET /api/requests — List requests (cursor-based pagination)
 router.get(
     '/',
     verifyToken,
     asyncHandler(async (req, res) => {
-        const role = req.user.role; // Extract the requested role from token middleware
-        const isPrivileged = role === 'Admin' || role === 'Jefatura';
+        const role = req.user.role;
+        const isPrivileged = MANAGEMENT_ROLES.includes(role);
         const { mode, status } = req.query;
+        const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+        const cursor = req.query.cursor;
 
         let query = db.collection('requests');
 
@@ -57,23 +60,25 @@ router.get(
             query = query.where('status', '==', status);
         }
 
-        // Add additional logic so Jefatura sees only their department? (Future feature)
+        // Order by createdAt descending for consistent pagination
+        query = query.orderBy('createdAt', 'desc').limit(limit + 1);
 
-        // Cannot easily multiple orderBy if there are unindexed multiple wheres on status and userId
+        if (cursor) {
+            // We use the createdAt value of the last doc as cursor
+            // cursor format: ISO date string
+            query = query.startAfter(cursor);
+        }
+
         const snapshot = await query.get();
+        const docs = snapshot.docs;
 
-        const requestsList = snapshot.docs.map((doc) => {
-            const reqData = doc.data();
-            return {
-                id: doc.id,
-                ...reqData,
-            };
-        });
+        const hasMore = docs.length > limit;
+        const pageDocs = hasMore ? docs.slice(0, limit) : docs;
+        const nextCursor = hasMore ? pageDocs[pageDocs.length - 1].data().createdAt : null;
 
-        // Sort descending by created at natively
-        requestsList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const requests = pageDocs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
-        res.json({ requests: requestsList });
+        res.json({ requests, nextCursor });
     })
 );
 
@@ -81,7 +86,7 @@ router.get(
 router.put(
     '/:id/status',
     verifyToken,
-    authorize('Admin', 'Jefatura'),
+    authorize(ROLES.ADMIN, ROLES.JEFATURA),
     validate(updateRequestStatusSchema),
     asyncHandler(async (req, res) => {
         const { status, response } = req.body;
@@ -98,7 +103,7 @@ router.put(
 
         const currentStatus = requestDoc.data().status;
 
-        if (role === 'Jefatura') {
+        if (role === ROLES.JEFATURA) {
             if (status !== 'VISADO' && status !== 'REJECTED') {
                 return res.status(403).json({ error: "Jefatura solo puede VISAR o RECHAZAR" });
             }

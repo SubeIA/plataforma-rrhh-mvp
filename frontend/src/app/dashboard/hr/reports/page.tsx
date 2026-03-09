@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 
 export default function ReportsPage() {
     const { user, protectRoute, loading } = useAuth();
+    const toast = useToast();
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [reportData, setReportData] = useState([]);
@@ -16,7 +18,7 @@ export default function ReportsPage() {
 
     const generateReport = async () => {
         if (!startDate || !endDate) {
-            alert("Seleccione rango de fechas");
+            toast.warning("Seleccione rango de fechas");
             return;
         }
         setFetching(true);
@@ -26,7 +28,7 @@ export default function ReportsPage() {
                 const data = await res.json();
                 setReportData(data);
             } else {
-                alert("Error generando reporte");
+                toast.error("Error generando reporte");
             }
         } catch (error) {
             console.error(error);

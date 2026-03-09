@@ -10,17 +10,18 @@ import {
 } from '../validators/attendance.js';
 import { AppError } from '../errors/AppError.js';
 import { calculateDailyAttendance } from '../utils/attendanceCalculator.js';
+import { ROLES, PRIVILEGED_ROLES } from '../constants/roles.js';
 
 const router = Router();
 
-// POST /api/attendance — Punch IN/OUT
+// POST /api/attendance — Punch IN/OUT (con transacción para evitar race conditions)
 router.post(
     '/',
     verifyToken,
     validate(punchSchema),
     asyncHandler(async (req, res) => {
         const { type, lat, lng, accuracy } = req.body;
-        const userId = req.user.uid; // uid en vez de id por firebase
+        const userId = req.user.uid;
 
         if (lat == null || lng == null) {
             throw new AppError('Se requiere ubicación GPS para registrar asistencia', 400);
@@ -29,70 +30,71 @@ router.post(
         const todayStr = new Date().toISOString().split('T')[0];
         const timestampIso = new Date().toISOString();
 
-        // Verificar Artículo 22 (oculta exigencia de marcas)
+        // Verificar Artículo 22
         const userDoc = await db.collection('users').doc(userId).get();
         if (userDoc.exists && userDoc.data().contract_type === 'Art22') {
-            // El usuario art 22 no requiere marcar, pero si lo hace, no calculamos atrasos ni retenciones estrictas
-            // Por requerimiento "Omisión automática". Aún así dejaremos guardar la marca si quisieran.
+            // Art 22 no requiere marcar, pero si lo hace se guarda sin cálculos estrictos
         }
 
-        // Usamos una combinación de userId_yyyy-mm-dd como ID del documento diario
         const dailyRecordId = `${userId}_${todayStr}`;
         const dailyRef = db.collection('daily_attendance').doc(dailyRecordId);
-        const dailySnap = await dailyRef.get();
 
-        if (type === 'IN') {
-            // Registrar entrada
-            if (dailySnap.exists && dailySnap.data().entry_time) {
-                // Ya tiene entrada
-                throw new AppError('Ya registraste tu entrada hoy', 400);
+        // Usar transacción para evitar race conditions (doble punch)
+        const result = await db.runTransaction(async (transaction) => {
+            const dailySnap = await transaction.get(dailyRef);
+
+            if (type === 'IN') {
+                if (dailySnap.exists && dailySnap.data().entry_time) {
+                    throw new AppError('Ya registraste tu entrada hoy', 400);
+                }
+                transaction.set(dailyRef, {
+                    user_id: userId,
+                    date: todayStr,
+                    entry_time: timestampIso,
+                    lat_in: lat,
+                    lng_in: lng,
+                    accuracy_in: accuracy || null,
+                    is_manual_override: false,
+                    created_at: timestampIso,
+                    updated_at: timestampIso
+                }, { merge: true });
+
+            } else if (type === 'OUT') {
+                if (!dailySnap.exists || !dailySnap.data().entry_time) {
+                    throw new AppError('Debes registrar tu entrada primero', 400);
+                }
+                if (dailySnap.data().exit_time) {
+                    throw new AppError('Ya registraste tu salida hoy', 400);
+                }
+
+                const entryTime = dailySnap.data().entry_time;
+                const calculations = calculateDailyAttendance(entryTime, timestampIso);
+
+                transaction.update(dailyRef, {
+                    exit_time: timestampIso,
+                    lat_out: lat,
+                    lng_out: lng,
+                    accuracy_out: accuracy || null,
+                    calculated_work_hours: calculations.calculatedWorkHours,
+                    late_minutes: calculations.lateMinutes,
+                    extra_minutes: calculations.extraMinutes,
+                    updated_at: timestampIso
+                });
             }
-            await dailyRef.set({
-                user_id: userId,
-                date: todayStr,
-                entry_time: timestampIso,
-                lat_in: lat,
-                lng_in: lng,
-                accuracy_in: accuracy || null,
-                is_manual_override: false,
-                created_at: timestampIso,
-                updated_at: timestampIso
-            }, { merge: true });
 
-        } else if (type === 'OUT') {
-            // Registrar salida
-            if (!dailySnap.exists || !dailySnap.data().entry_time) {
-                throw new AppError('Debes registrar tu entrada primero', 400);
-            }
-            if (dailySnap.data().exit_time) {
-                throw new AppError('Ya registraste tu salida hoy', 400);
-            }
+            return { id: dailyRecordId, type, timestamp: timestampIso };
+        });
 
-            const entryTime = dailySnap.data().entry_time;
-            const calculations = calculateDailyAttendance(entryTime, timestampIso);
-
-            await dailyRef.update({
-                exit_time: timestampIso,
-                lat_out: lat,
-                lng_out: lng,
-                accuracy_out: accuracy || null,
-                calculated_work_hours: calculations.calculatedWorkHours,
-                late_minutes: calculations.lateMinutes,
-                extra_minutes: calculations.extraMinutes,
-                updated_at: timestampIso
-            });
-        }
-
-        res.status(201).json({ id: dailyRecordId, type, timestamp: timestampIso });
+        res.status(201).json(result);
     })
 );
 
-// GET /api/attendance — List attendance (filtered)
+// GET /api/attendance — List attendance (con batch reads para evitar N+1)
 router.get(
     '/',
     verifyToken,
     asyncHandler(async (req, res) => {
-        const isPrivileged = req.user.role === 'admin' || req.user.role === 'hr';
+        const isPrivileged = PRIVILEGED_ROLES.includes(req.user.role);
         let { userId, startDate, endDate } = req.query;
 
         let query = db.collection('attendance');
@@ -103,8 +105,6 @@ router.get(
             query = query.where('userId', '==', userId);
         }
 
-        // Firestore does not support multiple range filters on different fields easily,
-        // but it supports range filters on the same field "timestamp"
         if (startDate) {
             query = query.where('timestamp', '>=', startDate);
         }
@@ -113,25 +113,43 @@ router.get(
         }
 
         query = query.orderBy('timestamp', 'desc').limit(100);
-
         const snapshot = await query.get();
 
-        // Manual join with user & profile
-        const attendancePromises = snapshot.docs.map(async (doc) => {
-            const att = doc.data();
-            const userDoc = await db.collection('users').doc(att.userId).get();
-            const profileDoc = await db.collection('profiles').doc(att.userId).get();
+        // Batch reads para evitar N+1 queries
+        const userIdsSet = new Set(snapshot.docs.map(d => d.data().userId).filter(Boolean));
+        const userIds = [...userIdsSet];
 
+        const userMap = {};
+        const profileMap = {};
+
+        if (userIds.length > 0) {
+            const userRefs = userIds.map(uid => db.collection('users').doc(uid));
+            const profileRefs = userIds.map(uid => db.collection('profiles').doc(uid));
+
+            const [userDocs, profileDocs] = await Promise.all([
+                db.getAll(...userRefs),
+                db.getAll(...profileRefs)
+            ]);
+
+            userDocs.forEach(doc => {
+                if (doc.exists) userMap[doc.id] = doc.data();
+            });
+            profileDocs.forEach(doc => {
+                if (doc.exists) profileMap[doc.id] = doc.data();
+            });
+        }
+
+        const rows = snapshot.docs.map(doc => {
+            const att = doc.data();
             return {
                 id: doc.id,
                 ...att,
-                email: userDoc.exists ? userDoc.data().email : null,
-                fullName: profileDoc.exists ? profileDoc.data().fullName : null,
-                department: profileDoc.exists ? profileDoc.data().department : null
+                email: userMap[att.userId]?.email || null,
+                fullName: profileMap[att.userId]?.fullName || null,
+                department: profileMap[att.userId]?.department || null
             };
         });
 
-        const rows = await Promise.all(attendancePromises);
         res.json(rows);
     })
 );
@@ -157,8 +175,8 @@ router.get(
     '/summary',
     verifyToken,
     asyncHandler(async (req, res) => {
-        const { month_year } = req.query; // formato YYYY-MM
-        const isPrivileged = req.user.role === 'admin' || req.user.role === 'jefatura';
+        const { month_year } = req.query;
+        const isPrivileged = req.user.role === ROLES.ADMIN || req.user.role === ROLES.JEFATURA;
         let targetUser = req.user.uid;
 
         if (isPrivileged && req.query.userId) {
@@ -181,13 +199,13 @@ router.get(
     })
 );
 
-// GET /api/attendance/admin-summary — Admin: Resumen histórico mensual global (todos los usuarios)
+// GET /api/attendance/admin-summary — Admin: Resumen histórico mensual global (con batch reads)
 router.get(
     '/admin-summary',
     verifyToken,
-    authorize('admin', 'hr'),
+    authorize(ROLES.ADMIN, ROLES.HR),
     asyncHandler(async (req, res) => {
-        const { month_year } = req.query; // formato YYYY-MM
+        const { month_year } = req.query;
 
         let query = db.collection('daily_attendance');
 
@@ -199,27 +217,38 @@ router.get(
         query = query.orderBy('date', 'desc').limit(100);
         const snapshot = await query.get();
 
-        const promises = snapshot.docs.map(async (doc) => {
+        // Batch read de usuarios para evitar N+1
+        const userIdsSet = new Set(snapshot.docs.map(d => d.data().user_id).filter(Boolean));
+        const userIds = [...userIdsSet];
+
+        const userMap = {};
+        if (userIds.length > 0) {
+            const userRefs = userIds.map(uid => db.collection('users').doc(uid));
+            const userDocs = await db.getAll(...userRefs);
+            userDocs.forEach(doc => {
+                if (doc.exists) userMap[doc.id] = doc.data();
+            });
+        }
+
+        const rows = snapshot.docs.map(doc => {
             const data = doc.data();
-            const userDoc = await db.collection('users').doc(data.user_id).get();
             return {
                 id: doc.id,
                 ...data,
-                user_email: userDoc.exists ? userDoc.data().email : 'Unknown',
-                user_name: userDoc.exists ? userDoc.data().name : 'Unknown'
+                user_email: userMap[data.user_id]?.email || 'Unknown',
+                user_name: userMap[data.user_id]?.name || 'Unknown'
             };
         });
 
-        const rows = await Promise.all(promises);
         res.json(rows);
     })
 );
 
-// POST /api/attendance/manual — HR/Admin: Excepción / Edición Justificada (No marcaje involuntario)
+// POST /api/attendance/manual — HR/Admin: Excepción / Edición Justificada
 router.post(
     '/manual',
     verifyToken,
-    authorize('admin', 'hr'),
+    authorize(ROLES.ADMIN, ROLES.HR),
     validate(manualAttendanceSchema),
     asyncHandler(async (req, res) => {
         const { userId, date, entry_time, exit_time } = req.body;
@@ -258,7 +287,7 @@ router.post(
 router.put(
     '/:id',
     verifyToken,
-    authorize('admin', 'hr'),
+    authorize(ROLES.ADMIN, ROLES.HR),
     validate(updateAttendanceSchema),
     asyncHandler(async (req, res) => {
         const { id } = req.params;

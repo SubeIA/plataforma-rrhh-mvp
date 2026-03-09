@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 
 export default function ShiftManagementPage() {
     const { user, protectRoute, loading } = useAuth();
+    const toast = useToast();
     const [shifts, setShifts] = useState([]);
     const [users, setUsers] = useState([]);
 
@@ -27,7 +29,10 @@ export default function ShiftManagementPage() {
             ]);
 
             if (shiftsRes.ok) setShifts(await shiftsRes.json());
-            if (usersRes.ok) setUsers(await usersRes.json());
+            if (usersRes.ok) {
+                const usersData = await usersRes.json();
+                setUsers(usersData.users ?? usersData);
+            }
         } catch (error) {
             console.error("Error fetching data:", error);
         }
@@ -49,7 +54,7 @@ export default function ShiftManagementPage() {
                 body: JSON.stringify({ name, startTime, endTime, toleranceMinutes: tolerance })
             });
             if (res.ok) {
-                alert("Turno creado");
+                toast.success("Turno creado");
                 setName("");
                 fetchData();
             }
@@ -67,7 +72,7 @@ export default function ShiftManagementPage() {
                 body: JSON.stringify({ userId: selectedUser, shiftId: selectedShift, startDate: assignStartDate })
             });
             if (res.ok) {
-                alert("Turno asignado correctamente");
+                toast.success("Turno asignado correctamente");
                 setSelectedUser("");
                 setSelectedShift("");
                 setAssignStartDate("");

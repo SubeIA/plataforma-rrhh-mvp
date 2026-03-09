@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/api';
 import { FileText, Download, FileSignature, Clock } from 'lucide-react';
 
@@ -15,7 +16,9 @@ interface DocumentRecord {
 
 export default function MyDocumentsPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
+    const toast = useToast();
     const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -49,7 +52,7 @@ export default function MyDocumentsPage() {
             window.open(data.downloadUrl, '_blank');
         } catch (err: any) {
             console.error('Error generating download URL:', err);
-            alert('No se pudo descargar el documento.');
+            toast.error('No se pudo descargar el documento.');
         }
     };
 
@@ -64,11 +67,11 @@ export default function MyDocumentsPage() {
                 const data = await res.json();
                 throw new Error(data.error || 'Fallo de firma');
             }
-            alert('Documento firmado con éxito.');
+            toast.success('Documento firmado con éxito.');
             fetchDocuments(); // refresh list
         } catch (err: any) {
             console.error('Error signing document:', err);
-            alert(err.message || 'No se pudo firmar el documento.');
+            toast.error(err.message || 'No se pudo firmar el documento.');
         }
     };
 

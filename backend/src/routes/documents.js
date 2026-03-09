@@ -7,6 +7,7 @@ import { verifyToken, authorize } from '../middleware/auth.js';
 import { createDocumentSchema } from '../validators/documents.js';
 import { AppError, NotFoundError } from '../errors/AppError.js';
 import dbController from '../db.js';
+import { ROLES, MANAGEMENT_ROLES } from '../constants/roles.js';
 
 const router = Router();
 
@@ -49,7 +50,7 @@ router.post(
 
         // Verificar permisos:
         // Un empleado solo puede subirse documentos a sí mismo (y generalmente no lo hacen).
-        if (req.user.uid !== user_id && !['Admin', 'Jefatura'].includes(req.user.role)) {
+        if (req.user.uid !== user_id && !MANAGEMENT_ROLES.includes(req.user.role)) {
             throw new AppError('No tienes permisos para subir documentos a este usuario.', 403);
         }
 
@@ -109,7 +110,7 @@ router.get(
         let query = db.collection('documents');
 
         // Empleados solo ven los suyos
-        if (req.user.role === 'Empleado') {
+        if (req.user.role === ROLES.USER) {
             query = query.where('user_id', '==', req.user.uid);
         } else {
             // Admin/Jefatura pueden filtrar por user_id
@@ -159,7 +160,7 @@ router.get(
         const docData = docSnap.data();
 
         // Verificamos permisos de lectura
-        if (req.user.role === 'Empleado' && docData.user_id !== req.user.uid) {
+        if (req.user.role === ROLES.USER && docData.user_id !== req.user.uid) {
             throw new AppError('Acceso denegado a este documento', 403);
         }
 
@@ -186,7 +187,7 @@ router.get(
 router.delete(
     '/:id',
     verifyToken,
-    authorize('Admin'), // Updated role to be standard
+    authorize(ROLES.ADMIN),
     asyncHandler(async (req, res) => {
         if (!process.env.FIREBASE_STORAGE_BUCKET) {
             throw new AppError('Configuración faltante: FIREBASE_STORAGE_BUCKET no está definido en el servidor.', 500);

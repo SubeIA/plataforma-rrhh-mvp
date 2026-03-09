@@ -23,12 +23,14 @@ import {
     createUserWithEmailAndPassword,
 } from "firebase/auth";
 import UserModal from "./components/UserModal";
+import { useToast } from "@/context/ToastContext";
 import { Users, History, UserPlus, Edit3, Trash2, Shield, LayoutGrid, List, MapPin } from "lucide-react";
 
 const db = getFirestore(app);
 
 export default function AdminPage() {
     const { user, protectRoute, loading } = useAuth();
+    const toast = useToast();
     const [users, setUsers] = useState<any[]>([]);
     const [attendance, setAttendance] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -155,9 +157,9 @@ export default function AdminPage() {
         } catch (error: any) {
             console.error("Error saving user:", error);
             if (error.code === 'auth/email-already-in-use') {
-                alert("Ese correo ya está registrado en Firebase Auth.");
+                toast.error("Ese correo ya está registrado en Firebase Auth.");
             } else {
-                alert("Error al guardar usuario: " + (error.message || 'Intenta de nuevo.'));
+                toast.error("Error al guardar usuario: " + (error.message || 'Intenta de nuevo.'));
             }
         } finally {
             setIsSaving(false);

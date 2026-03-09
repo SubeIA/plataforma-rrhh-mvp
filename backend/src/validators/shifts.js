@@ -8,8 +8,8 @@ export const createShiftSchema = z.object({
 });
 
 export const assignShiftSchema = z.object({
-    userId: z.number({ required_error: 'userId is required' }).int().positive(),
-    shiftId: z.number({ required_error: 'shiftId is required' }).int().positive(),
+    userId: z.string({ required_error: 'userId is required' }).min(1),
+    shiftId: z.string({ required_error: 'shiftId is required' }).min(1),
     startDate: z.string({ required_error: 'Start date is required' }),
     endDate: z.string().optional(),
 });

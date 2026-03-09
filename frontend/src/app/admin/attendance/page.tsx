@@ -4,10 +4,12 @@ import { getFirestore, collection, getDocs, doc, updateDoc, query, where, orderB
 import { auth } from "@/config/firebase";
 import { Calendar, Clock, AlertTriangle, Edit2, ShieldAlert, CheckCircle2, Search, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
 
 const db = getFirestore(auth.app);
 
 export default function AdminAttendancePage() {
+    const toast = useToast();
     const [attendances, setAttendances] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -78,7 +80,7 @@ export default function AdminAttendancePage() {
             setValidatingRecord(null);
         } catch (e) {
             console.error(e);
-            alert("Error al validar HHEE");
+            toast.error("Error al validar HHEE");
         }
     };
 

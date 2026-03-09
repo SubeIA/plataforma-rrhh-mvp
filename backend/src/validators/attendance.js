@@ -8,9 +8,10 @@ export const punchSchema = z.object({
 });
 
 export const manualAttendanceSchema = z.object({
-    userId: z.number({ required_error: 'userId is required' }).int().positive(),
-    type: z.enum(['IN', 'OUT'], { required_error: 'Type must be IN or OUT' }),
-    timestamp: z.string({ required_error: 'Timestamp is required' }),
+    userId: z.string({ required_error: 'userId is required' }).min(1),
+    date: z.string({ required_error: 'date is required' }),
+    entry_time: z.string().optional(),
+    exit_time: z.string().optional(),
 });
 
 export const updateAttendanceSchema = z.object({

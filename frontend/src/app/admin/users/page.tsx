@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { getFirestore, collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { auth } from "@/config/firebase";
+import { useToast } from "@/context/ToastContext";
 import { UserPlus, MoreVertical, Edit2, Shield, User } from "lucide-react";
 
 const db = getFirestore(auth.app);
@@ -16,6 +17,7 @@ interface UserDoc {
 }
 
 export default function AdminUsersPage() {
+    const toast = useToast();
     const [users, setUsers] = useState<UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -48,7 +50,7 @@ export default function AdminUsersPage() {
             setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
         } catch (error) {
             console.error("Error updating role:", error);
-            alert("No se pudo actualizar el rol");
+            toast.error("No se pudo actualizar el rol");
         }
     };
 
@@ -112,15 +114,17 @@ export default function AdminUsersPage() {
                                         <td className="px-6 py-4">
                                             <select
                                                 className={`text-sm font-semibold px-3 py-1.5 rounded-full border-0 outline-none cursor-pointer
-                                                    ${u.role === 'Admin' ? 'bg-purple-100 text-purple-700' :
-                                                        u.role === 'Jefatura' ? 'bg-amber-100 text-amber-700' :
-                                                            'bg-emerald-100 text-emerald-700'}`}
-                                                value={u.role || 'Usuario'}
+                                                    ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                                                        u.role === 'hr' ? 'bg-blue-100 text-blue-700' :
+                                                            u.role === 'jefatura' ? 'bg-amber-100 text-amber-700' :
+                                                                'bg-emerald-100 text-emerald-700'}`}
+                                                value={u.role || 'user'}
                                                 onChange={(e) => handleChangeRole(u.id, e.target.value)}
                                             >
-                                                <option value="Usuario">Usuario</option>
-                                                <option value="Jefatura">Jefatura</option>
-                                                <option value="Admin">Admin</option>
+                                                <option value="user">Usuario</option>
+                                                <option value="hr">RRHH</option>
+                                                <option value="jefatura">Jefatura</option>
+                                                <option value="admin">Admin</option>
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 text-right">

@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
+import { apiFetch } from '@/lib/api';
 import { FileHeart, Search, PlusCircle, CheckCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -18,6 +20,7 @@ interface MedicalLicense {
 
 export default function HRMedicalLicensesPage() {
     const { token, role } = useAuth();
+    const toast = useToast();
     const [licenses, setLicenses] = useState<MedicalLicense[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -35,7 +38,7 @@ export default function HRMedicalLicensesPage() {
     const [allUsers, setAllUsers] = useState<any[]>([]); // For the select dropdown
 
     useEffect(() => {
-        if (role !== 'Admin') return;
+        if (role !== 'admin') return;
         fetchData();
     }, [role]);
 
@@ -43,22 +46,19 @@ export default function HRMedicalLicensesPage() {
         setLoading(true);
         try {
             // Fetch users first to map names
-            const usersRes = await fetch('/api/users', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const usersRes = await apiFetch('/api/users');
             const usersData = await usersRes.json();
 
             const map: Record<string, string> = {};
-            if (Array.isArray(usersData)) {
-                setAllUsers(usersData);
-                usersData.forEach(u => { map[u.id] = u.name; });
+            const userList = usersData.users ?? usersData;
+            if (Array.isArray(userList)) {
+                setAllUsers(userList);
+                userList.forEach((u: any) => { map[u.id] = u.name; });
             }
             setUsersMap(map);
 
             // Fetch medical licenses
-            const licRes = await fetch('/api/medical-licenses', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const licRes = await apiFetch('/api/medical-licenses');
             const licData = await licRes.json();
 
             if (Array.isArray(licData)) {
@@ -82,12 +82,9 @@ export default function HRMedicalLicensesPage() {
         setError('');
 
         try {
-            const response = await fetch('/api/medical-licenses', {
+            const response = await apiFetch('/api/medical-licenses', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     folio: receiptForm.folio,
                     userId: receiptForm.userId,
@@ -113,12 +110,9 @@ export default function HRMedicalLicensesPage() {
         if (!window.confirm(`¿Seguro de marcar la licencia ${folio} como ${newStatus}?`)) return;
 
         try {
-            const response = await fetch(`/api/medical-licenses/${folio}/status`, {
+            const response = await apiFetch(`/api/medical-licenses/${folio}/status`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
             });
 
@@ -128,7 +122,7 @@ export default function HRMedicalLicensesPage() {
 
             fetchData();
         } catch (err: any) {
-            alert(err.message);
+            toast.error(err.message);
         }
     };
 
@@ -145,7 +139,7 @@ export default function HRMedicalLicensesPage() {
         }
     };
 
-    if (role !== 'Admin') {
+    if (role !== 'admin') {
         return <div className="p-8 text-center text-red-600">No tienes permisos para ver esta página.</div>;
     }
 

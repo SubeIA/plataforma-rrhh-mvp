@@ -3,6 +3,7 @@ import { db as firestore } from '../config/firebase-config.js';
 import { verifyToken as requireAuth, authorize as requireRoles } from '../middleware/auth.js';
 import asyncHandler from 'express-async-handler';
 import { getStartOfCurrentMonth, getEndOfCurrentMonth, getStartOfPreviousMonth, getEndOfPreviousMonth } from '../utils/dates.js';
+import { MANAGEMENT_ROLES } from '../constants/roles.js';
 const router = express.Router();
 
 // Get start and end of current month
@@ -21,7 +22,7 @@ const getMonthRange = () => {
 router.get(
     '/kpis',
     requireAuth,
-    requireRoles(['Admin', 'Jefatura']),
+    requireRoles(MANAGEMENT_ROLES),
     asyncHandler(async (req, res) => {
         try {
             const { start: monthStart, end: monthEnd } = getMonthRange();

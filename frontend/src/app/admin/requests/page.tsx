@@ -40,7 +40,7 @@ export default function RequestsAdminPage() {
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
-        if (user && token && (role === "Admin" || role === "Jefatura")) {
+        if (user && token && (role === "admin" || role === "jefatura")) {
             fetchRequests();
         }
     }, [user, token, role, statusFilter]);
@@ -240,7 +240,7 @@ export default function RequestsAdminPage() {
                                 Rechazar
                             </button>
 
-                            {role === "Jefatura" && selectedRequest.status === "PENDING" && (
+                            {role === "jefatura" && selectedRequest.status === "PENDING" && (
                                 <button
                                     onClick={() => handleAction(selectedRequest.id, "VISADO")}
                                     disabled={processing}
@@ -250,7 +250,7 @@ export default function RequestsAdminPage() {
                                 </button>
                             )}
 
-                            {role === "Admin" && (
+                            {role === "admin" && (
                                 <button
                                     onClick={() => handleAction(selectedRequest.id, "APPROVED")}
                                     disabled={processing}

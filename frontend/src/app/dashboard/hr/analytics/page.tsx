@@ -22,7 +22,7 @@ export default function AnalyticsDashboardPage() {
 
     useEffect(() => {
         protectRoute();
-        if (!authLoading && user && ['Admin', 'Jefatura'].includes(user.role || '')) {
+        if (!authLoading && user && ['admin', 'hr', 'jefatura'].includes(user.role || '')) {
             fetchKPIs();
         } else if (!authLoading && user) {
             setError('No tienes permisos para acceder a esta vista.');
@@ -53,7 +53,7 @@ export default function AnalyticsDashboardPage() {
         );
     }
 
-    if (!user || !['Admin', 'Jefatura'].includes(user.role || '')) return null;
+    if (!user || !['admin', 'hr', 'jefatura'].includes(user.role || '')) return null;
 
     const statCards = [
         { name: 'Colaboradores Activos', stat: kpis?.totalUsers || 0, icon: Users, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },

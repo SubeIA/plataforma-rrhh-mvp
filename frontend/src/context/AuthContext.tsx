@@ -23,7 +23,7 @@ interface User {
 interface AuthContextType {
     user: User | null;
     token: string | null;
-    role: "Admin" | "Empleado" | "Jefatura" | null;
+    role: "admin" | "hr" | "jefatura" | "user" | null;
     loading: boolean;
     login: (email: string, password: any) => Promise<boolean>;
     logout: () => Promise<void>;
@@ -36,7 +36,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
-    const [role, setRole] = useState<"Admin" | "Empleado" | "Jefatura" | null>(null);
+    const [role, setRole] = useState<"admin" | "hr" | "jefatura" | "user" | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
@@ -53,13 +53,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     const userDocRef = doc(db, 'users', firebaseUser.uid);
                     const userDoc = await getDoc(userDocRef);
 
-                    let userRole: "Admin" | "Empleado" | "Jefatura" | "admin" | "hr" | "jefatura" | "user" | string = "Empleado";
+                    let userRole: "admin" | "hr" | "jefatura" | "user" | string = "user";
 
                     if (userDoc.exists()) {
                         const data = userDoc.data();
-                        userRole = data.role || "Empleado";
+                        userRole = data.role || "user";
                     } else {
-                        console.warn('Usuario no encontrado en la colección users. Usando rol por defecto "Empleado".');
+                        console.warn('Usuario no encontrado en la colección users. Usando rol por defecto "user".');
                     }
 
                     setRole(userRole as any);

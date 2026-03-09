@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 import CorrectionModal from "./components/CorrectionModal";
 import ManualEntryModal from "./components/ManualEntryModal";
@@ -8,6 +9,7 @@ import UploadModal from "./components/UploadModal";
 
 export default function HRPage() {
     const { user, protectRoute, loading } = useAuth();
+    const toast = useToast();
     const [attendance, setAttendance] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
     const [filters, setFilters] = useState({
@@ -48,8 +50,9 @@ export default function HRPage() {
             const res = await apiFetch('/api/users');
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
-            if (Array.isArray(data)) {
-                setUsers(data);
+            const list = data.users ?? data;
+            if (Array.isArray(list)) {
+                setUsers(list);
             } else {
                 setUsers([]);
             }
@@ -92,7 +95,7 @@ export default function HRPage() {
             fetchAttendance();
         } catch (error) {
             console.error("Error updating record:", error);
-            alert("Error al actualizar el registro.");
+            toast.error("Error al actualizar el registro.");
         }
     };
 
@@ -107,7 +110,7 @@ export default function HRPage() {
             fetchAttendance();
         } catch (error) {
             console.error("Error creating manual record:", error);
-            alert("Error al crear registro manual.");
+            toast.error("Error al crear registro manual.");
         }
     };
 
@@ -119,10 +122,10 @@ export default function HRPage() {
                 body: JSON.stringify({ userId, name, url })
             });
             if (!res.ok) throw new Error("Upload failed");
-            alert("Documento asignado correctamente.");
+            toast.success("Documento asignado correctamente.");
         } catch (error) {
             console.error("Error uploading document:", error);
-            alert("Error al asignar documento.");
+            toast.error("Error al asignar documento.");
         }
     };
 

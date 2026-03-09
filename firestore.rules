@@ -3,33 +3,136 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Cada usuario puede leer su propio perfil
+    // ── Helper functions ──
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'admin';
+    }
+
+    function isHR() {
+      return isSignedIn() && getUserRole() == 'hr';
+    }
+
+    function isAdminOrHR() {
+      return isSignedIn() && getUserRole() in ['admin', 'hr'];
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Users ──
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // Admin puede leer y escribir cualquier perfil
-      allow read, write: if request.auth != null &&
-                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
-      // El propio usuario puede actualizar su perfil (excepto rol y status)
-      allow update: if request.auth != null && request.auth.uid == userId &&
-                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status']);
-      // Admin puede crear documentos de usuario
-      allow create: if request.auth != null &&
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() ||
+                       (isOwner(userId) &&
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status']));
+      allow delete: if isAdmin();
     }
 
-    // Logs de asistencia
-    match /attendance_logs/{logId} {
-      allow read: if request.auth != null &&
-                     (resource.data.user_id == request.auth.uid ||
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin");
-      allow create: if request.auth != null;
-      allow update: if request.auth != null &&
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    // ── Profiles ──
+    match /profiles/{userId} {
+      allow read: if isOwner(userId) || isAdminOrHR();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    // Resto de colecciones: solo usuarios autenticados
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // ── Daily Attendance ──
+    match /daily_attendance/{recordId} {
+      allow read: if isSignedIn() &&
+                     (resource.data.user_id == request.auth.uid || isAdminOrHR());
+      allow create: if isSignedIn();
+      allow update: if isAdminOrHR();
+      allow delete: if isAdmin();
     }
+
+    // ── Attendance (legacy) ──
+    match /attendance/{logId} {
+      allow read: if isSignedIn() &&
+                     (resource.data.userId == request.auth.uid || isAdminOrHR());
+      allow create: if isSignedIn();
+      allow update: if isAdminOrHR();
+      allow delete: if isAdmin();
+    }
+
+    // ── Requests (leave, permissions, etc.) ──
+    match /requests/{requestId} {
+      allow read: if isSignedIn() &&
+                     (resource.data.userId == request.auth.uid || isAdminOrHR() ||
+                      getUserRole() == 'jefatura');
+      allow create: if isSignedIn();
+      allow update: if isAdminOrHR() || getUserRole() == 'jefatura';
+      allow delete: if isAdmin();
+    }
+
+    // ── Documents ──
+    match /documents/{docId} {
+      allow read: if isSignedIn() &&
+                     (resource.data.userId == request.auth.uid || isAdminOrHR() ||
+                      getUserRole() == 'jefatura');
+      allow create: if isAdminOrHR();
+      allow update: if isAdminOrHR();
+      allow delete: if isAdmin();
+    }
+
+    // ── Shifts ──
+    match /shifts/{shiftId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdminOrHR();
+    }
+
+    // ── Shift assignments ──
+    match /shift_assignments/{assignmentId} {
+      allow read: if isSignedIn() &&
+                     (resource.data.userId == request.auth.uid || isAdminOrHR());
+      allow create, update, delete: if isAdminOrHR();
+    }
+
+    // ── Medical licenses ──
+    match /medical_licenses/{licenseId} {
+      allow read: if isSignedIn() &&
+                     (resource.data.user_id == request.auth.uid || isAdminOrHR());
+      allow create: if isSignedIn();
+      allow update: if isAdminOrHR();
+      allow delete: if isAdmin();
+    }
+
+    // ── Karin (sensitive - restricted to admin) ──
+    match /karin_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ── ITAM (IT Asset Management) ──
+    match /itam_assets/{assetId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHR() || getUserRole() == 'jefatura';
+      allow delete: if isAdmin();
+    }
+
+    // ── Audit log (append-only, admin read) ──
+    match /audit_log/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // ── Analytics (read-only for privileged) ──
+    match /analytics/{docId} {
+      allow read: if isAdminOrHR() || getUserRole() == 'jefatura';
+      allow write: if isAdmin();
+    }
+
+    // ── Deny everything else by default (no wildcard) ──
   }
 }

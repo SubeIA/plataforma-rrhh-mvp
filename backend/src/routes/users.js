@@ -8,31 +8,48 @@ import { ConflictError, AppError } from '../errors/AppError.js';
 
 const router = Router();
 
-// GET /api/users — Admin/HR: list all users with profiles
+// GET /api/users — Admin/HR: list all users with profiles (cursor-based pagination)
 router.get(
     '/',
     verifyToken,
     authorize('admin', 'hr'),
     asyncHandler(async (req, res) => {
-        // Obtenemos todos los documentos de la colección 'users'
-        const usersSnapshot = await db.collection('users').get();
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+        const cursor = req.query.cursor; // last document ID from previous page
 
-        const usersPromises = usersSnapshot.docs.map(async (userDoc) => {
+        let query = db.collection('users').orderBy('__name__').limit(limit + 1);
+
+        if (cursor) {
+            const cursorDoc = await db.collection('users').doc(cursor).get();
+            if (cursorDoc.exists) {
+                query = query.startAfter(cursorDoc);
+            }
+        }
+
+        const usersSnapshot = await query.get();
+        const docs = usersSnapshot.docs;
+
+        // Determine if there's a next page
+        const hasMore = docs.length > limit;
+        const pageDocs = hasMore ? docs.slice(0, limit) : docs;
+        const nextCursor = hasMore ? pageDocs[pageDocs.length - 1].id : null;
+
+        // Batch-read profiles to avoid N+1
+        const profileRefs = pageDocs.map(d => db.collection('profiles').doc(d.id));
+        const profileDocs = profileRefs.length > 0 ? await db.getAll(...profileRefs) : [];
+
+        const users = pageDocs.map((userDoc, i) => {
             const userData = userDoc.data();
-            // Buscar perfil asociado
-            const profileDoc = await db.collection('profiles').doc(userDoc.id).get();
-            const profileData = profileDoc.exists ? profileDoc.data() : {};
-
+            const profileData = profileDocs[i]?.exists ? profileDocs[i].data() : {};
             return {
                 id: userDoc.id,
                 email: userData.email,
                 role: userData.role,
-                ...profileData, // Esparce fullName, phone, etc.
+                ...profileData,
             };
         });
 
-        const allUsers = await Promise.all(usersPromises);
-        res.json(allUsers);
+        res.json({ users, nextCursor });
     })
 );
 

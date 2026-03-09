@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import db from '../db.js';
+import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
 import { getHoursDifference } from '../utils/geo.js';
+import { ROLES, PRIVILEGED_ROLES } from '../constants/roles.js';
 
 const router = Router();
 
@@ -10,7 +11,7 @@ const router = Router();
 router.get(
     '/payroll',
     verifyToken,
-    authorize('admin', 'hr'),
+    authorize(ROLES.ADMIN, ROLES.HR),
     asyncHandler(async (req, res) => {
         const { startDate, endDate } = req.query;
 
@@ -18,61 +19,71 @@ router.get(
             return res.status(400).json({ error: true, message: 'startDate and endDate are required' });
         }
 
-        const queryStartDate = startDate + 'T00:00:00';
-        const queryEndDate = endDate + 'T23:59:59';
+        // 1. Obtener todos los usuarios con sus perfiles
+        const usersSnapshot = await db.collection('users').get();
+        const userIds = usersSnapshot.docs.map(d => d.id);
 
-        const rows = await db.query(
-            `SELECT u.id, u.email, p.fullName, p.department, 
-                    a.type, a.timestamp
-             FROM users u
-             LEFT JOIN profiles p ON u.id = p.userId
-             LEFT JOIN attendance a ON u.id = a.userId
-             WHERE a.timestamp BETWEEN ? AND ?
-             ORDER BY u.id, a.timestamp ASC`,
-            [queryStartDate, queryEndDate]
-        );
+        // Batch read de perfiles
+        const profileRefs = userIds.map(uid => db.collection('profiles').doc(uid));
+        const profileDocs = profileRefs.length > 0 ? await db.getAll(...profileRefs) : [];
 
-        // Process rows to calculate hours per user
+        const profileMap = {};
+        profileDocs.forEach(doc => {
+            if (doc.exists) {
+                profileMap[doc.id] = doc.data();
+            }
+        });
+
+        // 2. Obtener registros de asistencia diaria en el rango de fechas
+        let query = db.collection('daily_attendance')
+            .where('date', '>=', startDate)
+            .where('date', '<=', endDate)
+            .orderBy('date', 'asc');
+
+        const attendanceSnapshot = await query.get();
+
+        // 3. Construir reporte por usuario
         const report = {};
 
-        rows.forEach((row) => {
-            if (!report[row.id]) {
-                report[row.id] = {
-                    id: row.id,
-                    email: row.email,
-                    fullName: row.fullName || 'N/A',
-                    department: row.department || 'N/A',
-                    totalHours: 0,
-                    daysWorked: 0,
-                    records: [],
-                };
+        usersSnapshot.docs.forEach(userDoc => {
+            const userData = userDoc.data();
+            const profile = profileMap[userDoc.id] || {};
+            report[userDoc.id] = {
+                id: userDoc.id,
+                email: userData.email,
+                fullName: profile.fullName || 'N/A',
+                department: profile.department || 'N/A',
+                totalHours: 0,
+                daysWorked: 0,
+                totalLateMinutes: 0,
+                totalExtraMinutes: 0,
+            };
+        });
+
+        attendanceSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const userId = data.user_id;
+
+            if (!report[userId]) return;
+
+            if (data.entry_time && data.exit_time) {
+                const hours = data.calculated_work_hours || 0;
+                report[userId].totalHours += hours;
+                report[userId].daysWorked += 1;
+                report[userId].totalLateMinutes += data.late_minutes || 0;
+                report[userId].totalExtraMinutes += data.extra_minutes || 0;
             }
-            report[row.id].records.push(row);
         });
 
-        // Calculate hours per user
-        Object.values(report).forEach((user) => {
-            let currentIn = null;
-            const days = new Set();
+        // 4. Formatear resultado
+        const result = Object.values(report)
+            .filter(user => user.daysWorked > 0)
+            .map(user => ({
+                ...user,
+                totalHours: parseFloat(user.totalHours.toFixed(2)),
+            }));
 
-            user.records.forEach((record) => {
-                const time = new Date(record.timestamp);
-                days.add(time.toDateString());
-
-                if (record.type === 'IN') {
-                    currentIn = time;
-                } else if (record.type === 'OUT' && currentIn) {
-                    user.totalHours += getHoursDifference(currentIn, time);
-                    currentIn = null;
-                }
-            });
-
-            user.daysWorked = days.size;
-            delete user.records;
-            user.totalHours = parseFloat(user.totalHours.toFixed(2));
-        });
-
-        res.json(Object.values(report));
+        res.json(result);
     })
 );
 

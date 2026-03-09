@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/api';
 import { Monitor, Phone, Laptop, Key, Box, Plus, Search, CheckCircle } from 'lucide-react';
 
@@ -23,6 +24,7 @@ interface UserRecord {
 
 export default function AdminITAMPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
+    const toast = useToast();
     const [assets, setAssets] = useState<ITAMAsset[]>([]);
     const [users, setUsers] = useState<UserRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function AdminITAMPage() {
 
     useEffect(() => {
         protectRoute();
-        if (!authLoading && user && ['Admin', 'Jefatura'].includes(user.role || '')) {
+        if (!authLoading && user && ['admin', 'hr', 'jefatura'].includes(user.role || '')) {
             fetchData();
         } else if (!authLoading && user) {
             setError('Acceso Denegado. Solo RRHH/TI puede gestionar activos.');
@@ -57,7 +59,8 @@ export default function AdminITAMPage() {
             if (!assetsRes.ok || !usersRes.ok) throw new Error('Error fetching data');
 
             setAssets(await assetsRes.json());
-            setUsers(await usersRes.json());
+            const usersData = await usersRes.json();
+            setUsers(usersData.users ?? usersData);
         } catch (err: any) {
             console.error('Error fetching ITAM:', err);
             setError('Error de conexión o permisos insuficientes.');
@@ -98,7 +101,7 @@ export default function AdminITAMPage() {
 
         } catch (err: any) {
             console.error('Error assigning asset:', err);
-            alert(err.message || 'Error al asignar el activo.');
+            toast.error(err.message || 'Error al asignar el activo.');
         } finally {
             setSubmitting(false);
         }
@@ -114,7 +117,7 @@ export default function AdminITAMPage() {
             if (!res.ok) throw new Error('Failed to update');
             setAssets(assets.map(a => a.id === id ? { ...a, status: newStatus as any } : a));
         } catch (err) {
-            alert('Error al actualizar estado.');
+            toast.error('Error al actualizar estado.');
         }
     };
 
@@ -141,7 +144,7 @@ export default function AdminITAMPage() {
         );
     }
 
-    if (!user || !['Admin', 'Jefatura'].includes(user.role || '')) return null;
+    if (!user || !['admin', 'hr', 'jefatura'].includes(user.role || '')) return null;
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -307,8 +310,8 @@ export default function AdminITAMPage() {
                                                 value={asset.status}
                                                 onChange={(e) => handleStatusUpdate(asset.id, e.target.value)}
                                                 className={`text-xs px-2.5 py-1 font-semibold rounded-full border-0 focus:ring-0 cursor-pointer ${asset.status === 'Asignado'
-                                                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                                        : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                                    : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                                                     }`}
                                             >
                                                 <option value="Asignado">Asignado</option>

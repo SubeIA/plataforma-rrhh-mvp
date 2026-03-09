@@ -59,6 +59,24 @@ const authLimiter = rateLimit({
     message: { error: true, message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.' },
 });
 
+// POST sensibles (documentos, licencias médicas)
+const strictWriteLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: true, message: 'Demasiadas solicitudes de escritura. Intenta en 15 minutos.' },
+});
+
+// DELETE sensibles (usuarios, activos, documentos)
+const deleteLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: true, message: 'Límite de eliminaciones alcanzado. Intenta en 15 minutos.' },
+});
+
 app.use(generalLimiter);
 
 // ─── Logging ────────────────────────────────────────────────
@@ -87,15 +105,15 @@ app.use((req, res, next) => {
 // ─── Routes ─────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/attendance', attendanceRoutes);
-app.use('/api/documents', documentsRoutes);
+app.use('/api/documents', strictWriteLimiter, documentsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/requests', requestsRoutes);
 app.use('/api/shifts', shiftsRoutes);
 app.use('/api/reports', reportsRoutes);
-app.use('/api/medical-licenses', medicalLicensesRoutes);
+app.use('/api/medical-licenses', strictWriteLimiter, medicalLicensesRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/karin', karinRoutes);
-app.use('/api/itam', itamRoutes);
+app.use('/api/itam', deleteLimiter, itamRoutes);
 app.use('/api/ai', aiRoutes);
 
 // Health Check

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/api';
 import { Shield, Search, Eye, Clock, CheckCircle } from 'lucide-react';
 
@@ -23,6 +24,7 @@ interface UserRecord {
 
 export default function AdminKarinPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
+    const toast = useToast();
     const [reports, setReports] = useState<KarinReport[]>([]);
     const [users, setUsers] = useState<UserRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -33,9 +35,9 @@ export default function AdminKarinPage() {
 
     useEffect(() => {
         protectRoute();
-        if (!authLoading && user && user.role === 'Admin') {
+        if (!authLoading && user && user.role === 'admin') {
             fetchData();
-        } else if (!authLoading && user && user.role !== 'Admin') {
+        } else if (!authLoading && user && user.role !== 'admin') {
             setError('Acceso Denegado. Solo el Administrador de RRHH puede ver esta sección de cumplimiento legal.');
             setLoading(false);
         }
@@ -52,7 +54,8 @@ export default function AdminKarinPage() {
             if (!reportsRes.ok || !usersRes.ok) throw new Error('Error fetching data');
 
             setReports(await reportsRes.json());
-            setUsers(await usersRes.json());
+            const usersData = await usersRes.json();
+            setUsers(usersData.users ?? usersData);
         } catch (err: any) {
             console.error('Error fetching Karin reports:', err);
             setError('Error de carga. Asegúrate de tener permisos de Admin o revisa tu red.');
@@ -78,7 +81,7 @@ export default function AdminKarinPage() {
             }
         } catch (err) {
             console.error('Error updating status:', err);
-            alert('No se pudo actualizar el estado de la denuncia.');
+            toast.error('No se pudo actualizar el estado de la denuncia.');
         }
     };
 
@@ -105,7 +108,7 @@ export default function AdminKarinPage() {
         );
     }
 
-    if (!user || user.role !== 'Admin') {
+    if (!user || user.role !== 'admin') {
         return (
             <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
                 {error && (

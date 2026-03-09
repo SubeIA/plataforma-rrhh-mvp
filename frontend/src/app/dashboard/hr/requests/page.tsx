@@ -1,17 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 
 export default function HRRequestsPage() {
     const { user, protectRoute, loading } = useAuth();
+    const toast = useToast();
     const [requests, setRequests] = useState([]);
 
     const fetchRequests = async () => {
         try {
             const res = await apiFetch('/api/requests');
             const data = await res.json();
-            setRequests(data);
+            setRequests(data.requests ?? data);
         } catch (error) {
             console.error("Error fetching requests:", error);
         }
@@ -38,7 +40,7 @@ export default function HRRequestsPage() {
             fetchRequests();
         } catch (error) {
             console.error("Error updating request:", error);
-            alert("Error al actualizar solicitud.");
+            toast.error("Error al actualizar solicitud.");
         }
     };
 

@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { ToastProvider } from "@/context/ToastContext";
+import ToastContainer from "@/components/ui/ToastContainer";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -10,7 +13,6 @@ export const metadata: Metadata = {
     description: "Plataforma de gestión de asistencia y RRHH",
 };
 
-import ErrorBoundary from "@/components/ErrorBoundary";
 
 export default function RootLayout({
     children,
@@ -21,7 +23,12 @@ export default function RootLayout({
         <html lang="es">
             <body className={inter.className}>
                 <ErrorBoundary>
-                    <AuthProvider>{children}</AuthProvider>
+                    <ToastProvider>
+                        <AuthProvider>
+                            {children}
+                        </AuthProvider>
+                        <ToastContainer />
+                    </ToastProvider>
                 </ErrorBoundary>
             </body>
         </html>

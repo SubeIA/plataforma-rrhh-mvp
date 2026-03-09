@@ -10,7 +10,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const router = useRouter();
 
     useEffect(() => {
-        if (!loading && (!user || user.role !== "Admin")) {
+        if (!loading && (!user || user.role !== "admin")) {
             router.replace("/dashboard");
         }
     }, [user, loading, router]);
@@ -23,7 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         );
     }
 
-    if (!user || user.role !== "Admin") {
+    if (!user || user.role !== "admin") {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6">
                 <ShieldAlert size={64} className="text-rose-500 mb-4" />

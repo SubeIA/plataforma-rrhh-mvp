@@ -3,6 +3,7 @@ import { db as firestore } from '../config/firebase-config.js';
 import { verifyToken as requireAuth, authorize as requireRoles } from '../middleware/auth.js';
 import asyncHandler from 'express-async-handler';
 import { itamAssetSchema } from '../validators/itam.js';
+import { MANAGEMENT_ROLES } from '../constants/roles.js';
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const router = express.Router();
 router.post(
     '/',
     requireAuth,
-    requireRoles(['Admin', 'Jefatura']),
+    requireRoles(MANAGEMENT_ROLES),
     asyncHandler(async (req, res) => {
         const payload = req.body;
 
@@ -57,7 +58,7 @@ router.post(
 router.get(
     '/',
     requireAuth,
-    requireRoles(['Admin', 'Jefatura']),
+    requireRoles(MANAGEMENT_ROLES),
     asyncHandler(async (req, res) => {
         const { user_id } = req.query;
         let query = firestore.collection('itam_assets').orderBy('assigned_at', 'desc');
@@ -82,7 +83,7 @@ router.get(
 router.put(
     '/:id/status',
     requireAuth,
-    requireRoles(['Admin', 'Jefatura']),
+    requireRoles(MANAGEMENT_ROLES),
     asyncHandler(async (req, res) => {
         const { status } = req.body;
         const { id } = req.params;
