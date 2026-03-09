@@ -39,11 +39,12 @@ export const verifyToken = async (req, res, next) => {
  * Usage: authorize('admin', 'hr')
  */
 export const authorize = (...roles) => {
+    const flatRoles = roles.flat(); // Normaliza: soporta authorize('admin') y authorize(['admin', 'hr'])
     return (req, res, next) => {
         if (!req.user) {
             return next(new UnauthorizedError());
         }
-        if (!roles.includes(req.user.role)) {
+        if (!flatRoles.includes(req.user.role)) {
             return next(new ForbiddenError(`Role '${req.user.role}' is not authorized for this action`));
         }
         next();
