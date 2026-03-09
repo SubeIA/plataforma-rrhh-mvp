@@ -103,6 +103,12 @@ app.use((req, res, next) => {
     next();
 });
 
+// ─── No Cache for API ───────────────────────────────────────
+app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+});
+
 // ─── Routes ─────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/attendance', attendanceRoutes);
