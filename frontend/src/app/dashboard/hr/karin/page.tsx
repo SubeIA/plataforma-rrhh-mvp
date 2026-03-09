@@ -51,11 +51,21 @@ export default function AdminKarinPage() {
                 apiFetch('/api/users')
             ]);
 
-            if (!reportsRes.ok || !usersRes.ok) throw new Error('Error fetching data');
+            if (!reportsRes.ok) {
+                const errData = await reportsRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Error al cargar denuncias');
+            }
+            if (!usersRes.ok) {
+                const errData = await usersRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Error al cargar usuarios');
+            }
 
-            setReports(await reportsRes.json());
+            const reportsData = await reportsRes.json();
+            setReports(Array.isArray(reportsData) ? reportsData : []);
+
             const usersData = await usersRes.json();
-            setUsers(usersData.users ?? usersData);
+            const userList = usersData.users ?? usersData;
+            setUsers(Array.isArray(userList) ? userList : []);
         } catch (err: any) {
             console.error('Error fetching Karin reports:', err);
             setError('Error de carga. Asegúrate de tener permisos de Admin o revisa tu red.');

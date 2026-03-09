@@ -38,7 +38,7 @@ export default function HRMedicalLicensesPage() {
     const [allUsers, setAllUsers] = useState<any[]>([]); // For the select dropdown
 
     useEffect(() => {
-        if (role !== 'admin') return;
+        if (role !== 'admin' && role !== 'hr') return;
         fetchData();
     }, [role]);
 
@@ -59,6 +59,10 @@ export default function HRMedicalLicensesPage() {
 
             // Fetch medical licenses
             const licRes = await apiFetch('/api/medical-licenses');
+            if (!licRes.ok) {
+                const errData = await licRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Error al cargar licencias médicas');
+            }
             const licData = await licRes.json();
 
             if (Array.isArray(licData)) {
@@ -139,7 +143,7 @@ export default function HRMedicalLicensesPage() {
         }
     };
 
-    if (role !== 'admin') {
+    if (role !== 'admin' && role !== 'hr') {
         return <div className="p-8 text-center text-red-600">No tienes permisos para ver esta página.</div>;
     }
 

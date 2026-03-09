@@ -68,14 +68,13 @@ router.get(
         const companyId = req.user.companyId;
 
         let query = firestore.collection('itam_assets')
-            .where('companyId', '==', companyId)
-            .orderBy('assigned_at', 'desc');
+            .where('companyId', '==', companyId);
 
         if (user_id) {
-            query = firestore.collection('itam_assets')
-                .where('companyId', '==', companyId)
-                .where('user_id', '==', user_id);
+            query = query.where('user_id', '==', user_id);
         }
+
+        query = query.orderBy('assigned_at', 'desc');
 
         const snapshot = await query.get();
         const assets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

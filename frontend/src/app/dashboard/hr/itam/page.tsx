@@ -56,11 +56,21 @@ export default function AdminITAMPage() {
                 apiFetch('/api/users')
             ]);
 
-            if (!assetsRes.ok || !usersRes.ok) throw new Error('Error fetching data');
+            if (!assetsRes.ok) {
+                const errData = await assetsRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Error al cargar activos');
+            }
+            if (!usersRes.ok) {
+                const errData = await usersRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Error al cargar usuarios');
+            }
 
-            setAssets(await assetsRes.json());
+            const assetsData = await assetsRes.json();
+            setAssets(Array.isArray(assetsData) ? assetsData : []);
+
             const usersData = await usersRes.json();
-            setUsers(usersData.users ?? usersData);
+            const userList = usersData.users ?? usersData;
+            setUsers(Array.isArray(userList) ? userList : []);
         } catch (err: any) {
             console.error('Error fetching ITAM:', err);
             setError('Error de conexión o permisos insuficientes.');

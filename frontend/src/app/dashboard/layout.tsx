@@ -34,6 +34,14 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const router = useRouter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    // Cache the last known role so nav items don't disappear during page transitions
+    const [lastKnownRole, setLastKnownRole] = useState<string>('user');
+
+    useEffect(() => {
+        if (user?.role) {
+            setLastKnownRole(user.role);
+        }
+    }, [user?.role]);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -115,8 +123,8 @@ export default function DashboardLayout({
 
                         <nav className="px-3 space-y-1">
                             {(() => {
-                                const effectiveRole = user?.role || 'user';
-                                const visibleItems = navItems.filter(item => item.roles.includes(effectiveRole) || item.roles.includes('user'));
+                                const effectiveRole = lastKnownRole;
+                                const visibleItems = navItems.filter(item => item.roles.includes(effectiveRole));
                                 // Find the single best match: longest href that is a prefix of pathname
                                 const bestMatch = visibleItems.reduce<string | null>((best, item) => {
                                     const matches = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -186,8 +194,8 @@ export default function DashboardLayout({
 
                     <nav className="px-3 space-y-1">
                         {(() => {
-                            const effectiveRole = user?.role || 'user';
-                            const visibleItems = navItems.filter(item => item.roles.includes(effectiveRole) || item.roles.includes('user'));
+                            const effectiveRole = lastKnownRole;
+                            const visibleItems = navItems.filter(item => item.roles.includes(effectiveRole));
                             // Find the single best match: longest href that is a prefix of pathname
                             const bestMatch = visibleItems.reduce<string | null>((best, item) => {
                                 const matches = pathname === item.href || pathname.startsWith(item.href + '/');

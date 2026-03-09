@@ -7,15 +7,23 @@ import { apiFetch } from "@/lib/api";
 export default function HRRequestsPage() {
     const { user, protectRoute, loading } = useAuth();
     const toast = useToast();
-    const [requests, setRequests] = useState([]);
+    const [requests, setRequests] = useState<Record<string, any>[]>([]);
 
     const fetchRequests = async () => {
         try {
             const res = await apiFetch('/api/requests');
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                console.error("Error fetching requests:", err);
+                toast.error("Error al cargar solicitudes. Intenta recargar.");
+                return;
+            }
             const data = await res.json();
-            setRequests(data.requests ?? data);
+            const list = data.requests ?? data;
+            setRequests(Array.isArray(list) ? list : []);
         } catch (error) {
             console.error("Error fetching requests:", error);
+            toast.error("Error de conexión al cargar solicitudes.");
         }
     };
 
