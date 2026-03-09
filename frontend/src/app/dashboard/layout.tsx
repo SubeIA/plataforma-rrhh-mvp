@@ -94,15 +94,25 @@ export default function DashboardLayout({
                             <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
                                 <UserCircle className="text-indigo-600 h-10 w-10" />
                                 <div className="flex flex-col overflow-hidden">
-                                    <span className="text-sm font-semibold text-gray-900 truncate" title={user?.email || ''}>{user?.email || 'Cargando...'}</span>
-                                    <span className="text-xs text-indigo-600 font-bold uppercase">{user?.role || '...'}</span>
+                                    {loading && !user ? (
+                                        <>
+                                            <div className="h-3 w-32 bg-indigo-100 rounded animate-pulse mb-1" />
+                                            <div className="h-2 w-10 bg-indigo-200 rounded animate-pulse" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="text-sm font-semibold text-gray-900 truncate" title={user?.email || ''}>{user?.email}</span>
+                                            <span className="text-xs text-indigo-600 font-bold uppercase">{user?.role}</span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
                         <nav className="px-3 space-y-1">
                             {(() => {
-                                const visibleItems = navItems.filter(item => user && (item.roles.includes(user.role) || item.roles.includes('user')));
+                                const effectiveRole = user?.role || 'user';
+                                const visibleItems = navItems.filter(item => item.roles.includes(effectiveRole) || item.roles.includes('user'));
                                 // Find the single best match: longest href that is a prefix of pathname
                                 const bestMatch = visibleItems.reduce<string | null>((best, item) => {
                                     const matches = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -155,15 +165,25 @@ export default function DashboardLayout({
                         <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
                             <UserCircle className="text-indigo-600 h-10 w-10" />
                             <div className="flex flex-col overflow-hidden">
-                                <span className="text-sm font-semibold text-gray-900 truncate" title={user?.email || ''}>{user?.email || 'Cargando...'}</span>
-                                <span className="text-xs text-indigo-600 font-bold uppercase">{user?.role || '...'}</span>
+                                {loading && !user ? (
+                                    <>
+                                        <div className="h-3 w-32 bg-indigo-100 rounded animate-pulse mb-1" />
+                                        <div className="h-2 w-10 bg-indigo-200 rounded animate-pulse" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="text-sm font-semibold text-gray-900 truncate" title={user?.email || ''}>{user?.email}</span>
+                                        <span className="text-xs text-indigo-600 font-bold uppercase">{user?.role}</span>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
 
                     <nav className="px-3 space-y-1">
                         {(() => {
-                            const visibleItems = navItems.filter(item => user && (item.roles.includes(user.role) || item.roles.includes('user')));
+                            const effectiveRole = user?.role || 'user';
+                            const visibleItems = navItems.filter(item => item.roles.includes(effectiveRole) || item.roles.includes('user'));
                             // Find the single best match: longest href that is a prefix of pathname
                             const bestMatch = visibleItems.reduce<string | null>((best, item) => {
                                 const matches = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -236,14 +256,7 @@ export default function DashboardLayout({
 
                 <main className="flex-1 overflow-auto bg-gray-50/50 p-4 sm:p-6 lg:p-8 custom-scrollbar">
                     <div className="max-w-7xl mx-auto w-full">
-                        {loading || !user ? (
-                            <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
-                                <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
-                                <p className="text-gray-500 font-medium animate-pulse">Cargando portal...</p>
-                            </div>
-                        ) : (
-                            children
-                        )}
+                        {children}
                     </div>
                 </main>
             </div>
