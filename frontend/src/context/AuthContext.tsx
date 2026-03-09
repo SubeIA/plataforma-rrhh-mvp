@@ -90,7 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
             // Firebase Auth Login
             await signInWithEmailAndPassword(auth, email, password);
-            router.push('/selection');
+            router.push('/dashboard');
             return true;
         } catch (error: any) {
             console.error("Firebase Login Error", error);

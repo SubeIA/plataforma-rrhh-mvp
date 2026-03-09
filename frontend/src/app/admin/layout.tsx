@@ -11,7 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     useEffect(() => {
         if (!loading && (!user || user.role !== "Admin")) {
-            router.replace("/selection");
+            router.replace("/dashboard");
         }
     }, [user, loading, router]);
 
@@ -29,7 +29,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <ShieldAlert size={64} className="text-rose-500 mb-4" />
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">Acceso Denegado</h1>
                 <p className="text-gray-500 mb-6 text-center max-w-md">No tienes los permisos necesarios para acceder al panel de administración.</p>
-                <Link href="/selection" className="premium-button bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium">
+                <Link href="/dashboard" className="premium-button bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium">
                     Volver al Inicio
                 </Link>
             </div>
