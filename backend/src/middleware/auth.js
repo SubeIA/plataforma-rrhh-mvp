@@ -22,7 +22,10 @@ export const verifyToken = async (req, res, next) => {
         // Obtener rol y companyId del usuario desde Firestore
         // IMPORTANTE: companyId NUNCA viene del cliente, siempre de la DB
         const userDoc = await db.collection('users').doc(decodedToken.uid).get();
-        const userData = userDoc.exists ? userDoc.data() : {};
+        if (!userDoc.exists) {
+            return next(new UnauthorizedError('User account not found or has been deleted'));
+        }
+        const userData = userDoc.data();
         const role = userData.role || 'user';
         const companyId = userData.companyId || null;
 

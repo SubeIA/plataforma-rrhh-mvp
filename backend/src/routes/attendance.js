@@ -14,6 +14,13 @@ import { ROLES, PRIVILEGED_ROLES } from '../constants/roles.js';
 
 const router = Router();
 
+// Helper: obtener el último día del mes en formato YYYY-MM-DD
+function getLastDayOfMonth(monthYear) {
+    const [year, month] = monthYear.split('-').map(Number);
+    const lastDay = new Date(year, month, 0).getDate();
+    return `${monthYear}-${String(lastDay).padStart(2, '0')}`;
+}
+
 // POST /api/attendance — Punch IN/OUT (con transacción para evitar race conditions)
 router.post(
     '/',
@@ -23,7 +30,7 @@ router.post(
         const { type, lat, lng, accuracy } = req.body;
         const userId = req.user.uid;
 
-        if (lat == null || lng == null) {
+        if (lat === null || lat === undefined || lng === null || lng === undefined) {
             throw new AppError('Se requiere ubicación GPS para registrar asistencia', 400);
         }
 
@@ -98,26 +105,26 @@ router.get(
         const isPrivileged = PRIVILEGED_ROLES.includes(req.user.role);
         let { userId, startDate, endDate } = req.query;
 
-        let query = db.collection('attendance');
+        let query = db.collection('daily_attendance');
 
         if (!isPrivileged) {
-            query = query.where('userId', '==', req.user.uid);
+            query = query.where('user_id', '==', req.user.uid);
         } else if (userId) {
-            query = query.where('userId', '==', userId);
+            query = query.where('user_id', '==', userId);
         }
 
         if (startDate) {
-            query = query.where('timestamp', '>=', startDate);
+            query = query.where('date', '>=', startDate);
         }
         if (endDate) {
-            query = query.where('timestamp', '<=', endDate);
+            query = query.where('date', '<=', endDate);
         }
 
-        query = query.orderBy('timestamp', 'desc').limit(100);
+        query = query.orderBy('date', 'desc').limit(100);
         const snapshot = await query.get();
 
         // Batch reads para evitar N+1 queries
-        const userIdsSet = new Set(snapshot.docs.map(d => d.data().userId).filter(Boolean));
+        const userIdsSet = new Set(snapshot.docs.map(d => d.data().user_id).filter(Boolean));
         const userIds = [...userIdsSet];
 
         const userMap = {};
@@ -145,9 +152,9 @@ router.get(
             return {
                 id: doc.id,
                 ...att,
-                email: userMap[att.userId]?.email || null,
-                fullName: profileMap[att.userId]?.fullName || null,
-                department: profileMap[att.userId]?.department || null
+                email: userMap[att.user_id]?.email || null,
+                fullName: profileMap[att.user_id]?.fullName || null,
+                department: profileMap[att.user_id]?.department || null
             };
         });
 
@@ -189,7 +196,7 @@ router.get(
 
         if (month_year) {
             query = query.where('date', '>=', `${month_year}-01`)
-                .where('date', '<=', `${month_year}-31`);
+                .where('date', '<=', getLastDayOfMonth(month_year));
         }
 
         query = query.orderBy('date', 'desc').limit(50);
@@ -213,7 +220,7 @@ router.get(
 
         if (month_year) {
             query = query.where('date', '>=', `${month_year}-01`)
-                .where('date', '<=', `${month_year}-31`);
+                .where('date', '<=', getLastDayOfMonth(month_year));
         }
 
         query = query.orderBy('date', 'desc').limit(100);
@@ -296,7 +303,7 @@ router.put(
         const { id } = req.params;
         const { type, timestamp } = req.body;
 
-        await db.collection('attendance').doc(id).update({
+        await db.collection('daily_attendance').doc(id).update({
             type,
             timestamp
         });
@@ -304,7 +311,7 @@ router.put(
         await db.collection('audit_log').add({
             userId: req.user.uid,
             action: 'CORRECTION',
-            tableName: 'attendance',
+            tableName: 'daily_attendance',
             recordId: id,
             details: JSON.stringify({ type, timestamp }),
             timestamp: new Date().toISOString()

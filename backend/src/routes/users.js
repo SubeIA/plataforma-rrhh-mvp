@@ -5,6 +5,7 @@ import { verifyToken, authorize } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
 import { createUserSchema, updateUserSchema } from '../validators/users.js';
 import { ConflictError, AppError } from '../errors/AppError.js';
+import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ const router = Router();
 router.get(
     '/',
     verifyToken,
-    authorize('admin', 'hr'),
+    authorize(ROLES.ADMIN, ROLES.HR),
     asyncHandler(async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 50, 200);
         const cursor = req.query.cursor;
@@ -59,7 +60,7 @@ router.get(
 router.post(
     '/',
     verifyToken,
-    authorize('admin'),
+    authorize(ROLES.ADMIN),
     validate(createUserSchema),
     asyncHandler(async (req, res) => {
         const { email, password, role, fullName, phone, address, department, position, startDate } = req.body;
@@ -111,11 +112,20 @@ router.post(
 router.put(
     '/:id',
     verifyToken,
-    authorize('admin'),
+    authorize(ROLES.ADMIN),
     validate(updateUserSchema),
     asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { email, role, fullName, phone, address, department, position, startDate } = req.body;
+
+        // Verificar que el usuario pertenece a la misma empresa
+        const targetUser = await db.collection('users').doc(id).get();
+        if (!targetUser.exists) {
+            throw new AppError('User not found', 404);
+        }
+        if (targetUser.data().companyId !== req.user.companyId) {
+            throw new AppError('Cannot modify users from another company', 403);
+        }
 
         try {
             // Actualizar el correo en Auth si se envió
@@ -156,9 +166,18 @@ router.put(
 router.delete(
     '/:id',
     verifyToken,
-    authorize('admin'),
+    authorize(ROLES.ADMIN),
     asyncHandler(async (req, res) => {
         const { id } = req.params;
+
+        // Verificar que el usuario pertenece a la misma empresa
+        const targetUser = await db.collection('users').doc(id).get();
+        if (!targetUser.exists) {
+            throw new AppError('User not found', 404);
+        }
+        if (targetUser.data().companyId !== req.user.companyId) {
+            throw new AppError('Cannot delete users from another company', 403);
+        }
 
         try {
             // Borramos de Firebase Auth

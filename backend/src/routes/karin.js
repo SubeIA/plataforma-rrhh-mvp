@@ -1,23 +1,26 @@
 import express from 'express';
 import { db as firestore } from '../config/firebase-config.js';
-import { verifyToken as requireAuth, authorize as requireRoles } from '../middleware/auth.js';
-import asyncHandler from 'express-async-handler';
+import { verifyToken, authorize } from '../middleware/auth.js';
+import asyncHandler from '../middleware/asyncHandler.js';
 import { createKarinReportSchema } from '../validators/karin.js';
 import crypto from 'crypto';
 import { ROLES } from '../constants/roles.js';
+import { AppError } from '../errors/AppError.js';
 
 const router = express.Router();
 
-// La clave DEBE estar en .env en producción. Si no existe, el servidor no debe arrancar silenciosamente con una clave débil.
+// La clave DEBE estar en .env. En producción, si no existe, el servidor no arranca.
 const ENCRYPTION_KEY = process.env.KARIN_SECRET_KEY;
 if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
     console.error('CRITICAL: KARIN_SECRET_KEY must be set in .env and be exactly 32 characters.');
+    if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+    }
 }
 const IV_LENGTH = 16;
-// GCM auth tag is 16 bytes by default
 
 function encrypt(text) {
-    if (!ENCRYPTION_KEY) throw new Error('Encryption key not configured');
+    if (!ENCRYPTION_KEY) throw new AppError('Encryption key not configured. Set KARIN_SECRET_KEY in .env', 500);
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
     let encrypted = cipher.update(text, 'utf8');
@@ -27,34 +30,28 @@ function encrypt(text) {
 }
 
 function decrypt(text) {
-    try {
-        if (!ENCRYPTION_KEY) throw new Error('Encryption key not configured');
-        const parts = text.split(':');
+    if (!ENCRYPTION_KEY) throw new AppError('Encryption key not configured. Set KARIN_SECRET_KEY in .env', 500);
+    const parts = text.split(':');
 
-        // Soporte retrocompatible: formato viejo CBC (iv:encrypted) vs nuevo GCM (iv:authTag:encrypted)
-        if (parts.length === 2) {
-            // Formato legacy CBC - solo lectura para datos existentes
-            const iv = Buffer.from(parts[0], 'hex');
-            const encryptedText = Buffer.from(parts[1], 'hex');
-            const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-            let decrypted = decipher.update(encryptedText);
-            decrypted = Buffer.concat([decrypted, decipher.final()]);
-            return decrypted.toString();
-        }
-
-        // Formato nuevo GCM (iv:authTag:encrypted)
+    // Soporte retrocompatible: formato viejo CBC (iv:encrypted) vs nuevo GCM (iv:authTag:encrypted)
+    if (parts.length === 2) {
         const iv = Buffer.from(parts[0], 'hex');
-        const authTag = Buffer.from(parts[1], 'hex');
-        const encryptedText = Buffer.from(parts.slice(2).join(':'), 'hex');
-        const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
-        decipher.setAuthTag(authTag);
+        const encryptedText = Buffer.from(parts[1], 'hex');
+        const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
         let decrypted = decipher.update(encryptedText);
         decrypted = Buffer.concat([decrypted, decipher.final()]);
         return decrypted.toString();
-    } catch (e) {
-        console.error('Decryption failed', e);
-        return '[Error desencriptando texto]';
     }
+
+    // Formato nuevo GCM (iv:authTag:encrypted)
+    const iv = Buffer.from(parts[0], 'hex');
+    const authTag = Buffer.from(parts[1], 'hex');
+    const encryptedText = Buffer.from(parts.slice(2).join(':'), 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY), iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
 }
 
 // @route   POST /api/karin
@@ -62,17 +59,15 @@ function decrypt(text) {
 // @access  Authenticated user
 router.post(
     '/',
-    requireAuth,
+    verifyToken,
     asyncHandler(async (req, res) => {
         const { isAnonymous, accused_name, description, incident_date } = req.body;
 
-        // Validation
         const validation = createKarinReportSchema.safeParse({ isAnonymous, accused_name, description, incident_date });
         if (!validation.success) {
             return res.status(400).json({ error: validation.error.errors[0].message });
         }
 
-        // Encrypt description and accused_name
         const encryptedDescription = encrypt(description);
         const encryptedAccused = encrypt(accused_name);
 
@@ -97,27 +92,25 @@ router.post(
 
 // @route   GET /api/karin
 // @desc    Get all Karin Reports (Decrypted)
-// @access  Admin, Jefatura
+// @access  Admin only
 router.get(
     '/',
-    requireAuth,
-    requireRoles([ROLES.ADMIN]),
+    verifyToken,
+    authorize(ROLES.ADMIN),
     asyncHandler(async (req, res) => {
         const reportsSnapshot = await firestore.collection('karin_reports')
             .where('companyId', '==', req.user.companyId)
             .orderBy('created_at', 'desc')
             .get();
 
-        const reports = [];
-        reportsSnapshot.forEach(doc => {
+        const reports = reportsSnapshot.docs.map(doc => {
             const data = doc.data();
-            reports.push({
+            return {
                 id: doc.id,
                 ...data,
-                // Decrypt sensitive info for Admin visualizer
                 accused_name: decrypt(data.accused_name),
                 description: decrypt(data.description)
-            });
+            };
         });
 
         res.json(reports);
@@ -129,8 +122,8 @@ router.get(
 // @access  Admin
 router.put(
     '/:id/status',
-    requireAuth,
-    requireRoles([ROLES.ADMIN]),
+    verifyToken,
+    authorize(ROLES.ADMIN),
     asyncHandler(async (req, res) => {
         const { status } = req.body;
         const { id } = req.params;

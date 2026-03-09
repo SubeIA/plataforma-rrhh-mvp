@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { ALL_ROLES } from '../constants/roles.js';
+
+// Roles que un admin puede asignar (no puede crear super_admin)
+const assignableRoles = ALL_ROLES.filter(r => r !== 'super_admin');
 
 export const createUserSchema = z.object({
     email: z.string().email('Invalid email format'),
@@ -8,7 +12,7 @@ export const createUserSchema = z.object({
         .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
         .regex(/[0-9]/, 'Password must contain at least one digit')
         .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
-    role: z.enum(['user', 'admin', 'hr', 'jefatura']).default('user'),
+    role: z.enum(assignableRoles).default('user'),
     fullName: z.string().optional(),
     phone: z.string().optional(),
     address: z.string().optional(),
@@ -19,7 +23,7 @@ export const createUserSchema = z.object({
 
 export const updateUserSchema = z.object({
     email: z.string().email('Invalid email format'),
-    role: z.enum(['user', 'admin', 'hr', 'jefatura']),
+    role: z.enum(assignableRoles),
     fullName: z.string().optional(),
     phone: z.string().optional(),
     address: z.string().optional(),

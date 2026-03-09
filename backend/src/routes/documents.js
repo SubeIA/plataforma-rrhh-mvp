@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { db, storage } from '../config/firebase-config.js';
-import { FieldValue } from 'firebase-admin/firestore';
+import crypto from 'crypto';
+import admin, { db, storage } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
 import { createDocumentSchema } from '../validators/documents.js';
 import { AppError, NotFoundError } from '../errors/AppError.js';
 import dbController from '../db.js';
 import { ROLES, MANAGEMENT_ROLES } from '../constants/roles.js';
+
+const FieldValue = admin.firestore.FieldValue;
 
 const router = Router();
 
@@ -57,7 +59,7 @@ router.post(
         // Subir a Firebase Storage
         const bucket = storage.bucket(process.env.FIREBASE_STORAGE_BUCKET);
         const fileExt = req.file.originalname.split('.').pop() || '';
-        const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const uniqueName = `${Date.now()}_${crypto.randomBytes(12).toString('hex')}.${fileExt}`;
         const storagePath = `documents/${user_id}/${uniqueName}`;
 
         const fileRef = bucket.file(storagePath);

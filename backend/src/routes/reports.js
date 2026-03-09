@@ -2,8 +2,7 @@ import { Router } from 'express';
 import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { verifyToken, authorize } from '../middleware/auth.js';
-import { getHoursDifference } from '../utils/geo.js';
-import { ROLES, PRIVILEGED_ROLES } from '../constants/roles.js';
+import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
@@ -19,8 +18,10 @@ router.get(
             return res.status(400).json({ error: true, message: 'startDate and endDate are required' });
         }
 
-        // 1. Obtener todos los usuarios con sus perfiles
-        const usersSnapshot = await db.collection('users').get();
+        // 1. Obtener todos los usuarios de la empresa con sus perfiles
+        const usersSnapshot = await db.collection('users')
+            .where('companyId', '==', req.user.companyId)
+            .get();
         const userIds = usersSnapshot.docs.map(d => d.id);
 
         // Batch read de perfiles
@@ -34,8 +35,9 @@ router.get(
             }
         });
 
-        // 2. Obtener registros de asistencia diaria en el rango de fechas
+        // 2. Obtener registros de asistencia diaria en el rango de fechas (filtrado por empresa)
         let query = db.collection('daily_attendance')
+            .where('companyId', '==', req.user.companyId)
             .where('date', '>=', startDate)
             .where('date', '<=', endDate)
             .orderBy('date', 'asc');

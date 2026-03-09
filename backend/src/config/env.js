@@ -41,9 +41,9 @@ const config = {
         ? '*'
         : CORS_ORIGINS
             ? CORS_ORIGINS.split(',')
-            : ['http://localhost:3000', 'http://localhost:3001', 'https://plataforma-rrhh-mvp.vercel.app', 'https://www.plataforma-rrhh-mvp.vercel.app'],
-    adminEmail: ADMIN_EMAIL || 'admin@test.cl',
-    adminPassword: ADMIN_PASSWORD || 'admin',
+            : ['http://localhost:3000', 'http://localhost:3001'],
+    adminEmail: ADMIN_EMAIL || null,
+    adminPassword: ADMIN_PASSWORD || null,
     ai: {
         openaiApiKey: OPENAI_API_KEY || null,
         geminiApiKey: GEMINI_API_KEY || null,
