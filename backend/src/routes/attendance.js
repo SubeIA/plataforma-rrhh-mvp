@@ -159,9 +159,9 @@ router.get(
     '/history',
     verifyToken,
     asyncHandler(async (req, res) => {
-        const snapshot = await db.collection('attendance')
-            .where('userId', '==', req.user.uid)
-            .orderBy('timestamp', 'desc')
+        const snapshot = await db.collection('daily_attendance')
+            .where('user_id', '==', req.user.uid)
+            .orderBy('date', 'desc')
             .limit(10)
             .get();
 

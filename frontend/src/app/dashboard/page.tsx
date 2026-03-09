@@ -168,19 +168,35 @@ export default function DashboardPage() {
                     {history.map((record: any) => (
                         <div key={record.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-50/50 hover:bg-white transition-colors border border-transparent hover:border-indigo-100 group">
                             <div className="flex items-center gap-4">
-                                <div className={`w-2 h-10 rounded-full ${record.type === 'IN' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                <div className={`w-2 h-10 rounded-full ${record.entry_time && record.exit_time ? 'bg-indigo-400' : record.entry_time ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                                 <div>
-                                    <span className={`text-lg font-bold block ${record.type === 'IN' ? "text-emerald-700" : "text-rose-700"}`}>
-                                        {record.type === 'IN' ? 'ENTRADA' : 'SALIDA'}
+                                    <span className="text-base font-bold block text-gray-800">
+                                        {record.date}
                                     </span>
-                                    <span className="text-xs text-gray-400 flex items-center gap-1">
-                                        <MapPin size={12} /> {record.lat?.toFixed(4)}, {record.lng?.toFixed(4)}
+                                    <span className="text-xs text-gray-400 flex items-center gap-2">
+                                        {record.entry_time && (
+                                            <span className="text-emerald-600 font-medium">
+                                                ▶ {new Date(record.entry_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        )}
+                                        {record.exit_time && (
+                                            <span className="text-rose-500 font-medium">
+                                                ■ {new Date(record.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        )}
+                                        {!record.exit_time && record.entry_time && (
+                                            <span className="text-amber-500 font-medium">En curso…</span>
+                                        )}
                                     </span>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="font-medium text-gray-700">{new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                                <p className="text-xs text-gray-400">{new Date(record.timestamp).toLocaleDateString()}</p>
+                                {record.calculated_work_hours != null && (
+                                    <p className="font-semibold text-indigo-700">{record.calculated_work_hours.toFixed(1)} hrs</p>
+                                )}
+                                {record.is_manual_override && (
+                                    <p className="text-xs text-amber-500">Manual</p>
+                                )}
                             </div>
                         </div>
                     ))}
