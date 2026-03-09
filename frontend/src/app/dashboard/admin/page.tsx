@@ -329,7 +329,7 @@ export default function AdminPage() {
                                 </div>
                                 <div className="flex justify-between items-end">
                                     <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
-                                        {rec.timestamp ? new Date(rec.timestamp).toLocaleDateString() : '-'}
+                                        {rec.timestamp ? new Date(rec.timestamp).toLocaleDateString('es-CL') : '-'}
                                         {rec.accuracy && (
                                             <span className="ml-2 lowercase font-normal italic">
                                                 (±{Math.round(rec.accuracy)}m)
@@ -337,7 +337,7 @@ export default function AdminPage() {
                                         )}
                                     </div>
                                     <div className="text-sm font-bold text-indigo-600">
-                                        {rec.timestamp ? new Date(rec.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                                        {rec.timestamp ? new Date(rec.timestamp).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                                     </div>
                                 </div>
                             </div>

@@ -39,7 +39,7 @@ export default function CorrectionModal({ isOpen, onClose, onSubmit, record }: C
                 <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">Corregir Asistencia</h3>
                 <div className="mb-4 text-sm text-gray-600">
                     <p>Usuario: <strong>{record.email}</strong></p>
-                    <p>Fecha original: {new Date(record.timestamp).toLocaleString()}</p>
+                    <p>Fecha original: {new Date(record.timestamp).toLocaleString('es-CL')}</p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>

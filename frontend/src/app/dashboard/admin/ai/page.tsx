@@ -108,7 +108,7 @@ export default function AITokensPage() {
                         <h3 className="font-bold">Tokens Consumidos</h3>
                     </div>
                     <p className="text-4xl font-black text-gray-900 dark:text-white">
-                        {globalStats.totalTokens.toLocaleString()}
+                        {globalStats.totalTokens.toLocaleString('es-CL')}
                     </p>
                     <p className="text-sm text-gray-500 mt-2">Total histórico de la plataforma</p>
                 </div>
@@ -122,7 +122,7 @@ export default function AITokensPage() {
                         <h3 className="font-bold">Interacciones Totales</h3>
                     </div>
                     <p className="text-4xl font-black text-gray-900 dark:text-white">
-                        {globalStats.totalCalls.toLocaleString()}
+                        {globalStats.totalCalls.toLocaleString('es-CL')}
                     </p>
                     <p className="text-sm text-gray-500 mt-2">Consultas realizadas al Asistente</p>
                 </div>
@@ -192,7 +192,7 @@ export default function AITokensPage() {
                                         </td>
                                         <td className="px-4 py-4">
                                             <div className="text-sm text-gray-600">
-                                                {stat.lastUsed ? new Date(stat.lastUsed).toLocaleString() : 'N/A'}
+                                                {stat.lastUsed ? new Date(stat.lastUsed).toLocaleString('es-CL') : 'N/A'}
                                             </div>
                                         </td>
                                         <td className="px-4 py-4">
@@ -205,10 +205,10 @@ export default function AITokensPage() {
                                             </div>
                                         </td>
                                         <td className="px-4 py-4 text-right text-gray-900 font-medium">
-                                            {stat.callCount.toLocaleString()}
+                                            {stat.callCount.toLocaleString('es-CL')}
                                         </td>
                                         <td className="px-4 py-4 text-right">
-                                            <span className="font-bold text-indigo-600">{stat.totalTokens.toLocaleString()}</span>
+                                            <span className="font-bold text-indigo-600">{stat.totalTokens.toLocaleString('es-CL')}</span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <span className="px-2 py-1 rounded-md text-xs font-bold uppercase bg-emerald-100 text-emerald-700 block text-center">

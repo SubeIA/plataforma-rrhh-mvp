@@ -113,7 +113,7 @@ export default function MyITAMPage() {
                                     </span>
                                     <span className="flex justify-between">
                                         <span>Entregado:</span>
-                                        <span className="text-gray-900 dark:text-gray-200">{new Date(asset.assigned_at).toLocaleDateString()}</span>
+                                        <span className="text-gray-900 dark:text-gray-200">{new Date(asset.assigned_at).toLocaleDateString('es-CL')}</span>
                                     </span>
                                 </div>
                             </div>
@@ -145,7 +145,7 @@ export default function MyITAMPage() {
                                     </div>
                                 </div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Entregado el: {new Date(asset.assigned_at).toLocaleDateString()}
+                                    Entregado el: {new Date(asset.assigned_at).toLocaleDateString('es-CL')}
                                 </div>
                             </li>
                         ))}

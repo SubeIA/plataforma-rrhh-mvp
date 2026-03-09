@@ -313,7 +313,7 @@ export default function AdminITAMPage() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {new Date(asset.assigned_at).toLocaleDateString()}
+                                            {new Date(asset.assigned_at).toLocaleDateString('es-CL')}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <select

@@ -220,7 +220,7 @@ export default function HRPage() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {new Date(rec.timestamp).toLocaleString()}
+                                        {new Date(rec.timestamp).toLocaleString('es-CL')}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onClick={() => openCorrection(rec)} className="text-indigo-600 hover:text-indigo-900">Corregir</button>
