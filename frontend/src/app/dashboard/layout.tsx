@@ -21,7 +21,8 @@ import {
     Menu,
     X,
     LogOut,
-    UserCircle
+    UserCircle,
+    Building2
 } from 'lucide-react';
 
 export default function DashboardLayout({
@@ -63,6 +64,9 @@ export default function DashboardLayout({
         { name: 'Admin Usuarios', href: '/dashboard/admin', icon: Settings, roles: ['admin'] },
         { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', icon: Calendar, roles: ['admin'] },
         { name: 'IA & Tokens', href: '/dashboard/admin/ai', icon: Cpu, roles: ['admin'] },
+
+        // Super Admin Options
+        { name: 'Empresas', href: '/dashboard/super-admin/companies', icon: Building2, roles: ['super_admin'] },
     ];
 
     return (

@@ -78,10 +78,11 @@ router.post(
 
         const newReport = {
             reporter_id: isAnonymous ? null : req.user.uid,
-            accused_name: encryptedAccused, // Encrypted to protect identity in DB
+            accused_name: encryptedAccused,
             description: encryptedDescription,
             incident_date: new Date(incident_date).toISOString(),
             status: 'Abierto',
+            companyId: req.user.companyId,
             created_at: new Date().toISOString()
         };
 
@@ -103,6 +104,7 @@ router.get(
     requireRoles([ROLES.ADMIN]),
     asyncHandler(async (req, res) => {
         const reportsSnapshot = await firestore.collection('karin_reports')
+            .where('companyId', '==', req.user.companyId)
             .orderBy('created_at', 'desc')
             .get();
 
@@ -135,6 +137,12 @@ router.put(
 
         if (!['Abierto', 'En_Investigacion', 'Cerrado'].includes(status)) {
             return res.status(400).json({ error: 'Estado inválido.' });
+        }
+
+        // Verificar que el reporte pertenece a esta empresa
+        const reportDoc = await firestore.collection('karin_reports').doc(id).get();
+        if (!reportDoc.exists || reportDoc.data().companyId !== req.user.companyId) {
+            return res.status(404).json({ error: 'Reporte no encontrado.' });
         }
 
         await firestore.collection('karin_reports').doc(id).update({

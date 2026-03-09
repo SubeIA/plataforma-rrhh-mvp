@@ -9,7 +9,7 @@ const router = express.Router();
 
 // @route   POST /api/itam
 // @desc    Assign an IT asset to a user
-// @access  Admin, Jefatura
+// @access  Admin, HR
 router.post(
     '/',
     requireAuth,
@@ -17,19 +17,22 @@ router.post(
     asyncHandler(async (req, res) => {
         const payload = req.body;
 
-        // Validate request body
         const validation = itamAssetSchema.safeParse(payload);
         if (!validation.success) {
             return res.status(400).json({ error: validation.error.errors[0].message });
         }
 
         const { user_id, asset_type, serial_id, model, status } = validation.data;
+        const companyId = req.user.companyId;
 
-        // Verify if user exists
+        // Verificar que el usuario objetivo pertenece a la misma empresa
         const userRef = firestore.collection('users').doc(user_id);
         const userDoc = await userRef.get();
         if (!userDoc.exists) {
             return res.status(404).json({ error: 'Colaborador no encontrado.' });
+        }
+        if (userDoc.data().companyId !== companyId) {
+            return res.status(403).json({ error: 'El colaborador no pertenece a tu empresa.' });
         }
 
         const newAsset = {
@@ -38,6 +41,7 @@ router.post(
             serial_id,
             model,
             status: status || 'Asignado',
+            companyId,
             assigned_at: new Date().toISOString(),
             assigned_by: req.user.uid
         };
@@ -53,33 +57,36 @@ router.post(
 );
 
 // @route   GET /api/itam
-// @desc    Get all assets optionally filtered by user_id
-// @access  Admin, Jefatura
+// @desc    Get all assets of current company, optionally filtered by user_id
+// @access  Admin, HR
 router.get(
     '/',
     requireAuth,
     requireRoles(PRIVILEGED_ROLES),
     asyncHandler(async (req, res) => {
         const { user_id } = req.query;
-        let query = firestore.collection('itam_assets').orderBy('assigned_at', 'desc');
+        const companyId = req.user.companyId;
+
+        let query = firestore.collection('itam_assets')
+            .where('companyId', '==', companyId)
+            .orderBy('assigned_at', 'desc');
 
         if (user_id) {
-            query = firestore.collection('itam_assets').where('user_id', '==', user_id);
+            query = firestore.collection('itam_assets')
+                .where('companyId', '==', companyId)
+                .where('user_id', '==', user_id);
         }
 
         const snapshot = await query.get();
-        const assets = [];
-        snapshot.forEach(doc => {
-            assets.push({ id: doc.id, ...doc.data() });
-        });
+        const assets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         res.json(assets);
     })
 );
 
 // @route   PUT /api/itam/:id/status
-// @desc    Update asset status (e.g., mark as Devuelto)
-// @access  Admin, Jefatura
+// @desc    Update asset status
+// @access  Admin, HR
 router.put(
     '/:id/status',
     requireAuth,
@@ -87,9 +94,16 @@ router.put(
     asyncHandler(async (req, res) => {
         const { status } = req.body;
         const { id } = req.params;
+        const companyId = req.user.companyId;
 
         if (!['Asignado', 'Devuelto'].includes(status)) {
             return res.status(400).json({ error: 'Estado de activo no válido.' });
+        }
+
+        // Verificar que el activo pertenece a esta empresa
+        const assetDoc = await firestore.collection('itam_assets').doc(id).get();
+        if (!assetDoc.exists || assetDoc.data().companyId !== companyId) {
+            return res.status(404).json({ error: 'Activo no encontrado.' });
         }
 
         await firestore.collection('itam_assets').doc(id).update({
@@ -109,14 +123,11 @@ router.get(
     requireAuth,
     asyncHandler(async (req, res) => {
         const snapshot = await firestore.collection('itam_assets')
+            .where('companyId', '==', req.user.companyId)
             .where('user_id', '==', req.user.uid)
             .get();
 
-        const assets = [];
-        snapshot.forEach(doc => {
-            assets.push({ id: doc.id, ...doc.data() });
-        });
-
+        const assets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(assets);
     })
 );

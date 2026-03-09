@@ -55,6 +55,7 @@ router.post(
                     lng_in: lng,
                     accuracy_in: accuracy || null,
                     is_manual_override: false,
+                    companyId: req.user.companyId,
                     created_at: timestampIso,
                     updated_at: timestampIso
                 }, { merge: true });
@@ -207,7 +208,8 @@ router.get(
     asyncHandler(async (req, res) => {
         const { month_year } = req.query;
 
-        let query = db.collection('daily_attendance');
+        let query = db.collection('daily_attendance')
+            .where('companyId', '==', req.user.companyId);
 
         if (month_year) {
             query = query.where('date', '>=', `${month_year}-01`)
@@ -264,6 +266,7 @@ router.post(
             entry_time: entry_time || null,
             exit_time: exit_time || null,
             is_manual_override: true,
+            companyId: req.user.companyId,
             calculated_work_hours: calculations.calculatedWorkHours,
             late_minutes: calculations.lateMinutes,
             extra_minutes: calculations.extraMinutes,

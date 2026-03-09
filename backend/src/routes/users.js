@@ -15,9 +15,13 @@ router.get(
     authorize('admin', 'hr'),
     asyncHandler(async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-        const cursor = req.query.cursor; // last document ID from previous page
+        const cursor = req.query.cursor;
+        const companyId = req.user.companyId;
 
-        let query = db.collection('users').orderBy('__name__').limit(limit + 1);
+        let query = db.collection('users')
+            .where('companyId', '==', companyId)
+            .orderBy('__name__')
+            .limit(limit + 1);
 
         if (cursor) {
             const cursorDoc = await db.collection('users').doc(cursor).get();
@@ -29,12 +33,10 @@ router.get(
         const usersSnapshot = await query.get();
         const docs = usersSnapshot.docs;
 
-        // Determine if there's a next page
         const hasMore = docs.length > limit;
         const pageDocs = hasMore ? docs.slice(0, limit) : docs;
         const nextCursor = hasMore ? pageDocs[pageDocs.length - 1].id : null;
 
-        // Batch-read profiles to avoid N+1
         const profileRefs = pageDocs.map(d => db.collection('profiles').doc(d.id));
         const profileDocs = profileRefs.length > 0 ? await db.getAll(...profileRefs) : [];
 
@@ -71,17 +73,18 @@ router.post(
             await db.collection('users').doc(userId).set({
                 email,
                 role,
+                companyId: req.user.companyId,
                 createdAt: new Date().toISOString()
             });
 
-            // 3. Crear documento de perfil en Colección profiles
             await db.collection('profiles').doc(userId).set({
                 fullName,
                 phone: phone || null,
                 address: address || null,
                 department: department || null,
                 position: position || null,
-                startDate: startDate || null
+                startDate: startDate || null,
+                companyId: req.user.companyId
             });
 
             // Log format: (userId, action, tableName, recordId, details)

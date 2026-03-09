@@ -32,6 +32,7 @@ router.post(
             timeFormat,
             reason: reason || "",
             status: 'PENDING',
+            companyId: req.user.companyId,
             createdAt: new Date().toISOString()
         });
 
@@ -50,7 +51,8 @@ router.get(
         const limit = Math.min(parseInt(req.query.limit) || 30, 100);
         const cursor = req.query.cursor;
 
-        let query = db.collection('requests');
+        let query = db.collection('requests')
+            .where('companyId', '==', req.user.companyId);
 
         if (!isPrivileged || mode === 'my-requests') {
             query = query.where('userId', '==', req.user.uid);
@@ -97,7 +99,7 @@ router.put(
         // Admin can transition VISADO -> APPROVED or PENDING -> APPROVED or REJECTED
 
         const requestDoc = await db.collection('requests').doc(req.params.id).get();
-        if (!requestDoc.exists) {
+        if (!requestDoc.exists || requestDoc.data().companyId !== req.user.companyId) {
             return res.status(404).json({ error: "Solicitud no encontrada" });
         }
 

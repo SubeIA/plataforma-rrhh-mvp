@@ -22,23 +22,16 @@ function parseStartDate(startDate) {
  */
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        const { role, uid } = req.user;
-        let queryRef = db.collection('medical_licenses');
+        const { role, uid, companyId } = req.user;
+        let queryRef = db.collection('medical_licenses')
+            .where('companyId', '==', companyId);
 
-        // Si no es admin/hr, filtramos por su uid
-        if (role !== 'admin' && role !== 'hr') {
+        if (role !== 'admin' && role !== 'hr' && role !== 'super_admin') {
             queryRef = queryRef.where('userId', '==', uid);
         }
 
         const snapshot = await queryRef.orderBy('createdAt', 'desc').get();
-        const licenses = [];
-
-        snapshot.forEach(doc => {
-            licenses.push({
-                id: doc.id,
-                ...doc.data()
-            });
-        });
+        const licenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         res.json(licenses);
     } catch (error) {
@@ -69,7 +62,8 @@ router.post('/', authMiddleware, roleMiddleware(['admin', 'hr']), async (req, re
             folio: validatedData.folio,
             startDate: parseStartDate(validatedData.startDate),
             durationDays: validatedData.durationDays,
-            status: "RECEPCIONADA", // Estado inicial
+            status: "RECEPCIONADA",
+            companyId: req.user.companyId,
             createdAt: new Date(),
             createdBy: req.user.uid
         };
@@ -123,7 +117,7 @@ router.put('/:folio/status', authMiddleware, roleMiddleware(['admin', 'hr']), as
         const docRef = db.collection('medical_licenses').doc(folio);
         const docSnap = await docRef.get();
 
-        if (!docSnap.exists) {
+        if (!docSnap.exists || docSnap.data().companyId !== req.user.companyId) {
             return res.status(404).json({ error: 'Licencia médica no encontrada' });
         }
 

@@ -19,14 +19,18 @@ export const verifyToken = async (req, res, next) => {
         // Obtenemos info del token desde Firebase directamente
         const decodedToken = await auth.verifyIdToken(token);
 
-        // Obtener rol del usuario desde Firestore (ya que FB Auth no guarda "roles" custom por defecto)
+        // Obtener rol y companyId del usuario desde Firestore
+        // IMPORTANTE: companyId NUNCA viene del cliente, siempre de la DB
         const userDoc = await db.collection('users').doc(decodedToken.uid).get();
-        const role = userDoc.exists ? userDoc.data().role : 'user';
+        const userData = userDoc.exists ? userDoc.data() : {};
+        const role = userData.role || 'user';
+        const companyId = userData.companyId || null;
 
         req.user = {
             uid: decodedToken.uid,
             email: decodedToken.email,
-            role: role
+            role,
+            companyId,
         };
         next();
     } catch (err) {

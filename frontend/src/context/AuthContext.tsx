@@ -17,13 +17,15 @@ interface User {
     uid: string;
     email: string;
     role: string;
+    companyId: string | null;
     [key: string]: any;
 }
 
 interface AuthContextType {
     user: User | null;
     token: string | null;
-    role: "admin" | "hr" | "jefatura" | "user" | null;
+    role: "super_admin" | "admin" | "hr" | "jefatura" | "user" | null;
+    companyId: string | null;
     loading: boolean;
     login: (email: string, password: any) => Promise<boolean>;
     logout: () => Promise<void>;
@@ -36,7 +38,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
-    const [role, setRole] = useState<"admin" | "hr" | "jefatura" | "user" | null>(null);
+    const [role, setRole] = useState<"super_admin" | "admin" | "hr" | "jefatura" | "user" | null>(null);
+    const [companyId, setCompanyId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
@@ -53,21 +56,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     const userDocRef = doc(db, 'users', firebaseUser.uid);
                     const userDoc = await getDoc(userDocRef);
 
-                    let userRole: "admin" | "hr" | "jefatura" | "user" | string = "user";
+                    let userRole: string = "user";
+                    let userCompanyId: string | null = null;
 
                     if (userDoc.exists()) {
                         const data = userDoc.data();
                         userRole = data.role || "user";
+                        userCompanyId = data.companyId || null;
                     } else {
                         console.warn('Usuario no encontrado en la colección users. Usando rol por defecto "user".');
                     }
 
                     setRole(userRole as any);
-                    // Update user state with the correct role
+                    setCompanyId(userCompanyId);
                     setUser({
                         uid: firebaseUser.uid,
                         email: firebaseUser.email || '',
                         role: userRole,
+                        companyId: userCompanyId,
                     });
                 } catch (e) {
                     console.error("Error al obtener perfil o token desde Firestore", e);
@@ -79,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setUser(null);
                 setRole(null);
                 setToken(null);
+                setCompanyId(null);
             }
             setLoading(false);
         });
@@ -126,7 +133,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, role, loading, login, logout, resetPassword, protectRoute }}>
+        <AuthContext.Provider value={{ user, token, role, companyId, loading, login, logout, resetPassword, protectRoute }}>
             {children}
         </AuthContext.Provider>
     );

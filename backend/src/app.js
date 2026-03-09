@@ -22,6 +22,7 @@ import analyticsRoutes from './routes/analytics.js';
 import karinRoutes from './routes/karin.js';
 import itamRoutes from './routes/itam.js';
 import aiRoutes from './routes/ai.js';
+import companiesRoutes from './routes/companies.js';
 
 const app = express();
 
@@ -115,6 +116,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/karin', karinRoutes);
 app.use('/api/itam', deleteLimiter, itamRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/companies', companiesRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
