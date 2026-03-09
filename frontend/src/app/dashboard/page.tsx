@@ -2,11 +2,13 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { useRouter } from "next/navigation";
 import { Clock, MapPin, CheckCircle2, History as HistoryIcon, LogIn, LogOut } from "lucide-react";
 
 // Sync marker for repository update
 export default function DashboardPage() {
-    const { user, protectRoute, loading: authLoading } = useAuth();
+    const { user, protectRoute, loading: authLoading, role } = useAuth();
+    const router = useRouter();
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -16,6 +18,13 @@ export default function DashboardPage() {
     useEffect(() => {
         protectRoute();
     }, [user, authLoading]);
+
+    // super_admin no tiene empresa ni asistencia, redirigir a su panel
+    useEffect(() => {
+        if (!authLoading && role === 'super_admin') {
+            router.replace('/dashboard/super-admin/companies');
+        }
+    }, [authLoading, role, router]);
 
     const fetchHistory = async () => {
         try {
