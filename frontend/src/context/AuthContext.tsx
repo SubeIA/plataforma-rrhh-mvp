@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (firebaseUser) {
                 try {
                     // Force refresh token using getToken
-                    const jwt = await firebaseUser.getIdToken(true);
+                    const jwt = await firebaseUser.getIdToken();
                     setToken(jwt);
 
                     // Get user role from Firestore
@@ -69,6 +69,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                     setRole(userRole as any);
                     setCompanyId(userCompanyId);
+                    // Persist role so the sidebar can read it synchronously on next render
+                    if (typeof window !== 'undefined') {
+                        sessionStorage.setItem('lastKnownRole', userRole);
+                    }
                     setUser({
                         uid: firebaseUser.uid,
                         email: firebaseUser.email || '',
@@ -86,6 +90,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setRole(null);
                 setToken(null);
                 setCompanyId(null);
+                if (typeof window !== 'undefined') {
+                    sessionStorage.removeItem('lastKnownRole');
+                }
             }
             setLoading(false);
         });

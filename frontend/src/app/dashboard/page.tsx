@@ -27,6 +27,7 @@ export default function DashboardPage() {
     }, [authLoading, role, router]);
 
     const fetchHistory = async () => {
+        if (!user) return;
         try {
             const res = await apiFetch('/api/attendance/history');
             if (res.ok) {
@@ -46,7 +47,13 @@ export default function DashboardPage() {
     };
 
     useEffect(() => {
-        fetchHistory();
+        if (!authLoading && user) {
+            fetchHistory();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, authLoading]);
+
+    useEffect(() => {
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {

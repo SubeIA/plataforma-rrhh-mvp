@@ -34,8 +34,10 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const router = useRouter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    // Cache the last known role so nav items don't disappear during page transitions
-    const [lastKnownRole, setLastKnownRole] = useState<string>('user');
+    // Read role synchronously from sessionStorage so items appear on first render (no flash)
+    const [lastKnownRole, setLastKnownRole] = useState<string>(
+        () => (typeof window !== 'undefined' ? sessionStorage.getItem('lastKnownRole') || 'user' : 'user')
+    );
 
     useEffect(() => {
         if (user?.role) {
