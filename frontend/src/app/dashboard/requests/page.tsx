@@ -39,7 +39,7 @@ export default function RequestsDashboardPage() {
             const res = await apiFetch('/api/requests?mode=my-requests');
             if (res.ok) {
                 const data = await res.json();
-                setRequests(data);
+                setRequests(Array.isArray(data) ? data : (data.requests ?? []));
             }
         } catch (error) {
             console.error("Error fetching requests:", error);

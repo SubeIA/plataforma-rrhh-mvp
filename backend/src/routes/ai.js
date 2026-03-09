@@ -8,6 +8,6 @@ const router = Router();
 router.use(verifyToken);
 
 router.post('/chat', handleChat);
-router.get('/token-usage', authorize('Admin'), getAggregatedTokenUsage);
+router.get('/token-usage', authorize('admin'), getAggregatedTokenUsage);
 
 export default router;

@@ -101,29 +101,36 @@ export default function DashboardLayout({
                         </div>
 
                         <nav className="px-3 space-y-1">
-                            {navItems.map((item) => {
-                                if (!user || (!item.roles.includes(user.role) && !item.roles.includes('user'))) return null;
-                                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                                const isExactMatch = item.href === '/dashboard' ? pathname === '/dashboard' : isActive;
-
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        onClick={() => setIsMobileMenuOpen(false)}
-                                        className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isExactMatch
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                            : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
-                                            }`}
-                                    >
-                                        <item.icon
-                                            className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${isExactMatch ? 'text-indigo-100' : 'text-gray-400 group-hover:text-indigo-600'
+                            {(() => {
+                                const visibleItems = navItems.filter(item => user && (item.roles.includes(user.role) || item.roles.includes('user')));
+                                // Find the single best match: longest href that is a prefix of pathname
+                                const bestMatch = visibleItems.reduce<string | null>((best, item) => {
+                                    const matches = pathname === item.href || pathname.startsWith(item.href + '/');
+                                    if (!matches) return best;
+                                    if (best === null || item.href.length > best.length) return item.href;
+                                    return best;
+                                }, null);
+                                return visibleItems.map((item) => {
+                                    const isActive = item.href === bestMatch;
+                                    return (
+                                        <Link
+                                            key={item.href}
+                                            href={item.href}
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                            className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive
+                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
                                                 }`}
-                                        />
-                                        <span className="truncate">{item.name}</span>
-                                    </Link>
-                                );
-                            })}
+                                        >
+                                            <item.icon
+                                                className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${isActive ? 'text-indigo-100' : 'text-gray-400 group-hover:text-indigo-600'
+                                                    }`}
+                                            />
+                                            <span className="truncate">{item.name}</span>
+                                        </Link>
+                                    );
+                                });
+                            })()}
                         </nav>
                     </div>
                     <div className="p-4 border-t border-gray-100">
@@ -155,28 +162,35 @@ export default function DashboardLayout({
                     </div>
 
                     <nav className="px-3 space-y-1">
-                        {navItems.map((item) => {
-                            if (!user || (!item.roles.includes(user.role) && !item.roles.includes('user'))) return null;
-                            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                            const isExactMatch = item.href === '/dashboard' ? pathname === '/dashboard' : isActive;
-
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isExactMatch
-                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                        : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
-                                        }`}
-                                >
-                                    <item.icon
-                                        className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${isExactMatch ? 'text-indigo-100' : 'text-gray-400 group-hover:text-indigo-600'
+                        {(() => {
+                            const visibleItems = navItems.filter(item => user && (item.roles.includes(user.role) || item.roles.includes('user')));
+                            // Find the single best match: longest href that is a prefix of pathname
+                            const bestMatch = visibleItems.reduce<string | null>((best, item) => {
+                                const matches = pathname === item.href || pathname.startsWith(item.href + '/');
+                                if (!matches) return best;
+                                if (best === null || item.href.length > best.length) return item.href;
+                                return best;
+                            }, null);
+                            return visibleItems.map((item) => {
+                                const isActive = item.href === bestMatch;
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive
+                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                            : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
                                             }`}
-                                    />
-                                    <span className="truncate">{item.name}</span>
-                                </Link>
-                            );
-                        })}
+                                    >
+                                        <item.icon
+                                            className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${isActive ? 'text-indigo-100' : 'text-gray-400 group-hover:text-indigo-600'
+                                                }`}
+                                        />
+                                        <span className="truncate">{item.name}</span>
+                                    </Link>
+                                );
+                            });
+                        })()}
                     </nav>
                 </div>
                 <div className="p-4 border-t border-gray-100">
