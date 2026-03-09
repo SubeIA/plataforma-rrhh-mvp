@@ -306,7 +306,7 @@ export default function RequestsDashboardPage() {
 
                                                     <div className="flex items-center gap-4 text-sm text-slate-500 mb-3">
                                                         <span className="flex items-center gap-1.5 font-medium"><Calendar size={14} /> {req.startDate} {req.endDate !== req.startDate ? `al ${req.endDate}` : ''}</span>
-                                                        <span className="flex items-center gap-1.5"><Clock size={14} /> Emitido el {new Date(req.createdAt).toLocaleDateString()}</span>
+                                                        <span className="flex items-center gap-1.5"><Clock size={14} /> Emitido el {new Date(req.createdAt).toLocaleDateString('es-CL')}</span>
                                                     </div>
 
                                                     {(req.reason || req.response) && (
