@@ -12,7 +12,10 @@
         "lint": "next lint"
     },
     "dependencies": {
+        "@tanstack/react-query": "^5.90.21",
+        "@tanstack/react-query-devtools": "^5.91.3",
         "clsx": "^2.1.0",
+        "cookies-next": "^6.1.1",
         "date-fns": "^4.1.0",
         "firebase": "^12.10.0",
         "lucide-react": "^0.300.0",

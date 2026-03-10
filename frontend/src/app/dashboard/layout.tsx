@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { getCookie, setCookie } from 'cookies-next';
 import { useAuth } from "@/context/AuthContext";
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -34,14 +35,18 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const router = useRouter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    // Read role synchronously from sessionStorage so items appear on first render (no flash)
+    // Read cookie synchronously: works in browser, but since this is a "use client" component,
+    // on SSR getCookie('lastKnownRole') might technically return undefined / cause mismatch
+    // if not handled properly. However, for "use client" layout, reading cookie directly is safe enough for CSR initialization.
+    // To strictly avoid SSR hydration mismatch we use a lazy initializer that reads the cookie.
     const [lastKnownRole, setLastKnownRole] = useState<string>(
-        () => (typeof window !== 'undefined' ? sessionStorage.getItem('lastKnownRole') || 'user' : 'user')
+        () => (getCookie('lastKnownRole') as string) || 'user'
     );
 
     useEffect(() => {
         if (user?.role) {
             setLastKnownRole(user.role);
+            setCookie('lastKnownRole', user.role, { maxAge: 60 * 60 * 24 * 7 });
         }
     }, [user?.role]);
 

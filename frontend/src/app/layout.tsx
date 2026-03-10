@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
 import ToastContainer from "@/components/ui/ToastContainer";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import QueryProvider from "@/context/QueryProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,10 +25,12 @@ export default function RootLayout({
             <body className={inter.className}>
                 <ErrorBoundary>
                     <ToastProvider>
-                        <AuthProvider>
-                            {children}
-                        </AuthProvider>
-                        <ToastContainer />
+                        <QueryProvider>
+                            <AuthProvider>
+                                {children}
+                            </AuthProvider>
+                            <ToastContainer />
+                        </QueryProvider>
                     </ToastProvider>
                 </ErrorBoundary>
             </body>

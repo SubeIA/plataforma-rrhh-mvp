@@ -10,6 +10,7 @@ import {
     User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { setCookie, deleteCookie } from 'cookies-next';
 
 const db = getFirestore(auth.app);
 
@@ -69,10 +70,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                     setRole(userRole as any);
                     setCompanyId(userCompanyId);
-                    // Persist role so the sidebar can read it synchronously on next render
-                    if (typeof window !== 'undefined') {
-                        sessionStorage.setItem('lastKnownRole', userRole);
-                    }
+                    // Persist role in cookie so SSR can read it synchronously
+                    setCookie('lastKnownRole', userRole, { maxAge: 60 * 60 * 24 * 7 }); // 1 week
+
                     setUser({
                         uid: firebaseUser.uid,
                         email: firebaseUser.email || '',
@@ -90,9 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setRole(null);
                 setToken(null);
                 setCompanyId(null);
-                if (typeof window !== 'undefined') {
-                    sessionStorage.removeItem('lastKnownRole');
-                }
+                deleteCookie('lastKnownRole');
             }
             setLoading(false);
         });

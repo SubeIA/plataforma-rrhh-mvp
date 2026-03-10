@@ -22,7 +22,12 @@ export function NotificationsPanel() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [isMounted, setIsMounted] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         if (!user) return;
@@ -152,7 +157,9 @@ export function NotificationsPanel() {
                                         <p className="text-sm text-gray-600 mb-2">{notif.message}</p>
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs text-gray-400 font-medium">
-                                                {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true, locale: es })}
+                                                {isMounted
+                                                    ? formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true, locale: es })
+                                                    : ''}
                                             </span>
 
                                             <div className="flex gap-2">

@@ -3,13 +3,15 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, MapPin, CheckCircle2, History as HistoryIcon, LogIn, LogOut } from "lucide-react";
 
 // Sync marker for repository update
 export default function DashboardPage() {
     const { user, protectRoute, loading: authLoading, role } = useAuth();
     const router = useRouter();
-    const [history, setHistory] = useState<any[]>([]);
+    const queryClient = useQueryClient();
+
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
     const [location, setLocation] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -26,32 +28,17 @@ export default function DashboardPage() {
         }
     }, [authLoading, role, router]);
 
-    const fetchHistory = async () => {
-        if (!user) return;
-        try {
+    // React Query para el Historial (Autocacheo, auto-retry, no-useEffect boilerplate)
+    const { data: history = [], isLoading: isHistoryLoading } = useQuery({
+        queryKey: ['attendanceHistory', user?.uid],
+        queryFn: async () => {
             const res = await apiFetch('/api/attendance/history');
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data)) {
-                    setHistory(data);
-                } else {
-                    console.warn("History data is not an array:", data);
-                    setHistory([]);
-                }
-            } else {
-                setHistory([]);
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
-    useEffect(() => {
-        if (!authLoading && user) {
-            fetchHistory();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, authLoading]);
+            if (!res.ok) throw new Error('Network response was not ok');
+            const data = await res.json();
+            return Array.isArray(data) ? data : [];
+        },
+        enabled: !authLoading && !!user, // Solo ejecuta si el usuario está autenticado
+    });
 
     useEffect(() => {
         if ("geolocation" in navigator) {
@@ -96,7 +83,8 @@ export default function DashboardPage() {
 
             if (res.ok) {
                 setMessage(type === 'IN' ? "✅ Entrada registrada con éxito" : "✅ Salida registrada con éxito");
-                fetchHistory();
+                // Invalida la caché para provocar un re-fetch automático
+                queryClient.invalidateQueries({ queryKey: ['attendanceHistory'] });
             } else {
                 setMessage(`❌ Error: ${data.error || 'No se pudo registrar'}`);
             }
@@ -180,49 +168,56 @@ export default function DashboardPage() {
                     <HistoryIcon className="text-indigo-600" />
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Historial Reciente</h2>
                 </div>
-                <div className="space-y-4">
-                    {history.map((record: any) => (
-                        <div key={record.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-50/50 hover:bg-white transition-colors border border-transparent hover:border-indigo-100 group">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-2 h-10 rounded-full ${record.entry_time && record.exit_time ? 'bg-indigo-400' : record.entry_time ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                                <div>
-                                    <span className="text-base font-bold block text-gray-800">
-                                        {record.date}
-                                    </span>
-                                    <span className="text-xs text-gray-400 flex items-center gap-2">
-                                        {record.entry_time && (
-                                            <span className="text-emerald-600 font-medium">
-                                                ▶ {new Date(record.entry_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        )}
-                                        {record.exit_time && (
-                                            <span className="text-rose-500 font-medium">
-                                                ■ {new Date(record.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        )}
-                                        {!record.exit_time && record.entry_time && (
-                                            <span className="text-amber-500 font-medium">En curso…</span>
-                                        )}
-                                    </span>
+
+                {isHistoryLoading ? (
+                    <div className="flex justify-center p-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {history.map((record: any) => (
+                            <div key={record.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-50/50 hover:bg-white transition-colors border border-transparent hover:border-indigo-100 group">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-2 h-10 rounded-full ${record.entry_time && record.exit_time ? 'bg-indigo-400' : record.entry_time ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                    <div>
+                                        <span className="text-base font-bold block text-gray-800">
+                                            {record.date}
+                                        </span>
+                                        <span className="text-xs text-gray-400 flex items-center gap-2">
+                                            {record.entry_time && (
+                                                <span className="text-emerald-600 font-medium">
+                                                    ▶ {new Date(record.entry_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
+                                            {record.exit_time && (
+                                                <span className="text-rose-500 font-medium">
+                                                    ■ {new Date(record.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
+                                            {!record.exit_time && record.entry_time && (
+                                                <span className="text-amber-500 font-medium">En curso…</span>
+                                            )}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    {record.calculated_work_hours != null && (
+                                        <p className="font-semibold text-indigo-700">{record.calculated_work_hours.toFixed(1)} hrs</p>
+                                    )}
+                                    {record.is_manual_override && (
+                                        <p className="text-xs text-amber-500">Manual</p>
+                                    )}
                                 </div>
                             </div>
-                            <div className="text-right">
-                                {record.calculated_work_hours != null && (
-                                    <p className="font-semibold text-indigo-700">{record.calculated_work_hours.toFixed(1)} hrs</p>
-                                )}
-                                {record.is_manual_override && (
-                                    <p className="text-xs text-amber-500">Manual</p>
-                                )}
+                        ))}
+                        {history.length === 0 && (
+                            <div className="text-center py-10">
+                                <HistoryIcon size={48} className="mx-auto text-gray-200 mb-4" />
+                                <p className="text-gray-500 italic">Aún no hay marcas registradas para hoy.</p>
                             </div>
-                        </div>
-                    ))}
-                    {history.length === 0 && (
-                        <div className="text-center py-10">
-                            <HistoryIcon size={48} className="mx-auto text-gray-200 mb-4" />
-                            <p className="text-gray-500 italic">Aún no hay marcas registradas para hoy.</p>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
