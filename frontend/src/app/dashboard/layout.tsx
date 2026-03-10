@@ -35,13 +35,17 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const router = useRouter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    // Read cookie synchronously: works in browser, but since this is a "use client" component,
-    // on SSR getCookie('lastKnownRole') might technically return undefined / cause mismatch
-    // if not handled properly. However, for "use client" layout, reading cookie directly is safe enough for CSR initialization.
-    // To strictly avoid SSR hydration mismatch we use a lazy initializer that reads the cookie.
-    const [lastKnownRole, setLastKnownRole] = useState<string>(
-        () => (getCookie('lastKnownRole') as string) || 'user'
-    );
+    // Read cookie safely on client side only to strictly avoid SSR hydration mismatch
+    const [lastKnownRole, setLastKnownRole] = useState<string>('user');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+        const cookieRole = getCookie('lastKnownRole') as string;
+        if (cookieRole) {
+            setLastKnownRole(cookieRole);
+        }
+    }, []);
 
     useEffect(() => {
         if (user?.role) {
