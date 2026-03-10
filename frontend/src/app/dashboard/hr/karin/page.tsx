@@ -29,9 +29,14 @@ export default function AdminKarinPage() {
     const [users, setUsers] = useState<UserRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
 
     // Modal state
     const [selectedReport, setSelectedReport] = useState<KarinReport | null>(null);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         protectRoute();
@@ -190,7 +195,7 @@ export default function AdminKarinPage() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                {new Date(report.created_at).toLocaleDateString('es-CL')}
+                                                {isMounted ? new Date(report.created_at).toLocaleDateString('es-CL', {}) : ''}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -262,13 +267,13 @@ export default function AdminKarinPage() {
                                     <div>
                                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha del Incidente</p>
                                         <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                                            {new Date(selectedReport.incident_date).toLocaleDateString('es-CL')}
+                                            {isMounted ? new Date(selectedReport.incident_date).toLocaleDateString('es-CL', {}) : ''}
                                         </p>
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha de Recepción</p>
                                         <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                                            {new Date(selectedReport.created_at).toLocaleString('es-CL')}
+                                            {isMounted ? new Date(selectedReport.created_at).toLocaleString('es-CL', {}) : ''}
                                         </p>
                                     </div>
                                 </div>

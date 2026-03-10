@@ -20,6 +20,11 @@ export default function MyITAMPage() {
     const [assets, setAssets] = useState<ITAMAsset[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         protectRoute();
@@ -113,7 +118,7 @@ export default function MyITAMPage() {
                                     </span>
                                     <span className="flex justify-between">
                                         <span>Entregado:</span>
-                                        <span className="text-gray-900 dark:text-gray-200">{new Date(asset.assigned_at).toLocaleDateString('es-CL')}</span>
+                                        <span className="text-gray-900 dark:text-gray-200">{isMounted ? new Date(asset.assigned_at).toLocaleDateString('es-CL', {}) : ''}</span>
                                     </span>
                                 </div>
                             </div>
@@ -145,7 +150,7 @@ export default function MyITAMPage() {
                                     </div>
                                 </div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Entregado el: {new Date(asset.assigned_at).toLocaleDateString('es-CL')}
+                                    Entregado el: {isMounted ? new Date(asset.assigned_at).toLocaleDateString('es-CL', {}) : ''}
                                 </div>
                             </li>
                         ))}

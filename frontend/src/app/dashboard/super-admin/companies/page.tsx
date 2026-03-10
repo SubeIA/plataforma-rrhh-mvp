@@ -20,6 +20,7 @@ export default function SuperAdminCompaniesPage() {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const [form, setForm] = useState({
         name: '',
         rut: '',
@@ -28,6 +29,10 @@ export default function SuperAdminCompaniesPage() {
         adminPassword: '',
     });
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         if (role !== 'super_admin') return;
@@ -230,7 +235,7 @@ export default function SuperAdminCompaniesPage() {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-xs text-gray-400">ID: {company.id.slice(0, 8)}...</p>
-                                    <p className="text-xs text-gray-400">{new Date(company.createdAt).toLocaleDateString('es-CL')}</p>
+                                    <p className="text-xs text-gray-400">{isMounted ? new Date(company.createdAt).toLocaleDateString('es-CL', {}) : ''}</p>
                                 </div>
                             </div>
                         ))}

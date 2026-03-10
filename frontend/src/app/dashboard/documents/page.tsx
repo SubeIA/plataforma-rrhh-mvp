@@ -18,9 +18,13 @@ export default function MyDocumentsPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
     const toast = useToast();
     const [documents, setDocuments] = useState<DocumentRecord[]>([]);
-
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         protectRoute();
@@ -144,7 +148,7 @@ export default function MyDocumentsPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {doc.upload_date ? new Date(doc.upload_date).toLocaleDateString('es-CL') : 'N/A'}
+                                            {isMounted ? (doc.upload_date ? new Date(doc.upload_date).toLocaleDateString('es-CL', {}) : 'N/A') : ''}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {doc.status === 'SIGNED' ? (

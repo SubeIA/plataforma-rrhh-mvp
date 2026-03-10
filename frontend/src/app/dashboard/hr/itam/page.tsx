@@ -29,6 +29,7 @@ export default function AdminITAMPage() {
     const [users, setUsers] = useState<UserRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
 
     // Form states
     const [showForm, setShowForm] = useState(false);
@@ -37,6 +38,10 @@ export default function AdminITAMPage() {
     const [newSerial, setNewSerial] = useState('');
     const [newModel, setNewModel] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         protectRoute();
@@ -313,7 +318,7 @@ export default function AdminITAMPage() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {new Date(asset.assigned_at).toLocaleDateString('es-CL')}
+                                            {isMounted ? new Date(asset.assigned_at).toLocaleDateString('es-CL', {}) : ''}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <select

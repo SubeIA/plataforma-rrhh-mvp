@@ -4,6 +4,14 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { FileText, Calendar, Clock, Send, AlertCircle, CheckCircle2, ChevronRight, XCircle } from "lucide-react";
 
+// Helper para manejar tanto ISO strings como Firestore Timestamps {_seconds, _nanoseconds}
+function safeDate(value: string | { _seconds: number; _nanoseconds: number } | unknown): Date {
+    if (value && typeof value === 'object' && '_seconds' in (value as object)) {
+        return new Date((value as { _seconds: number })._seconds * 1000);
+    }
+    return new Date(value as string);
+}
+
 type RequestType = 'PERMISO_ADMINISTRATIVO' | 'FERIADO_LEGAL' | 'COMPENSATORIO' | 'LICENCIA_MEDICA';
 type TimeFormat = 'DIA_COMPLETO' | 'MEDIO_DIA_AM' | 'MEDIO_DIA_PM';
 
@@ -23,6 +31,7 @@ export default function RequestsDashboardPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
     const [requests, setRequests] = useState<RequestItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
 
     // Form State
     const [type, setType] = useState<RequestType>('PERMISO_ADMINISTRATIVO');
@@ -49,6 +58,10 @@ export default function RequestsDashboardPage() {
     }, []);
 
     useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
         protectRoute();
         if (user && !authLoading) {
             fetchRequests();
@@ -63,9 +76,11 @@ export default function RequestsDashboardPage() {
     }, [timeFormat, startDate]);
 
     // Cálculo básico fecha de reincorporación visual (Solo referencia UI)
+    // Solo se ejecuta en cliente para evitar errores de hidratación
     const getReincorporationDate = () => {
+        if (!isMounted) return "";
         if (!endDate) return "Seleccione fecha de fin";
-        const d = new Date(endDate);
+        const d = new Date(endDate + 'T12:00:00'); // hora fija para evitar issues de timezone
         // Si es PM o día completo, reincorpora al día siguiente (ignora fines de semana para UI simple)
         if (timeFormat === 'DIA_COMPLETO' || timeFormat === 'MEDIO_DIA_PM') {
             d.setDate(d.getDate() + 1);
@@ -74,7 +89,7 @@ export default function RequestsDashboardPage() {
             if (d.getDay() === 0) d.setDate(d.getDate() + 1);
             return d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
         } else if (timeFormat === 'MEDIO_DIA_AM') {
-            return `Mismo día (${new Date(startDate).toLocaleDateString('es-CL')}) en la tarde (14:00 hrs)`;
+            return `Mismo día (${new Date(startDate + 'T12:00:00').toLocaleDateString('es-CL')}) en la tarde (14:00 hrs)`;
         }
         return "-";
     };
@@ -306,7 +321,7 @@ export default function RequestsDashboardPage() {
 
                                                     <div className="flex items-center gap-4 text-sm text-slate-500 mb-3">
                                                         <span className="flex items-center gap-1.5 font-medium"><Calendar size={14} /> {req.startDate} {req.endDate !== req.startDate ? `al ${req.endDate}` : ''}</span>
-                                                        <span className="flex items-center gap-1.5"><Clock size={14} /> Emitido el {new Date(req.createdAt).toLocaleDateString('es-CL')}</span>
+                                                        <span className="flex items-center gap-1.5"><Clock size={14} /> Emitido el {isMounted ? safeDate(req.createdAt).toLocaleDateString('es-CL', {}) : ''}</span>
                                                     </div>
 
                                                     {(req.reason || req.response) && (

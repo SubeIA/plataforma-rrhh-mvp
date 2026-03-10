@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Download, Trash2 } from 'lucide-react';
 
 export interface DocumentRecord {
@@ -22,6 +22,12 @@ interface Props {
 }
 
 export default function DocumentsTable({ documents, getUserName, onDownload, onDelete, isAdmin }: Props) {
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden flex flex-col">
             <div className="overflow-x-auto">
@@ -64,7 +70,7 @@ export default function DocumentsTable({ documents, getUserName, onDownload, onD
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                                            {doc.upload_date ? new Date(doc.upload_date).toLocaleDateString('es-CL') : 'N/A'}
+                                            {isMounted ? (doc.upload_date ? new Date(doc.upload_date).toLocaleDateString('es-CL', {}) : 'N/A') : ''}
                                         </div>
                                         <div className="mt-1">
                                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${doc.status === 'SIGNED'

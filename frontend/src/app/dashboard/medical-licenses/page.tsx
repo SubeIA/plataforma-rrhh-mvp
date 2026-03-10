@@ -20,6 +20,11 @@ export default function EmployeeMedicalLicensesPage() {
     const [licenses, setLicenses] = useState<MedicalLicense[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         if (!user) return;
@@ -113,14 +118,14 @@ export default function EmployeeMedicalLicensesPage() {
                                             </h4>
                                             <div className="mt-1 flex flex-wrap gap-4 text-sm text-gray-500">
                                                 <span className="flex items-center gap-1">
-                                                    <strong>Desde:</strong> {formatDate(lic.startDate)}
+                                                    <strong>Desde:</strong> {isMounted ? formatDate(lic.startDate) : ''}
                                                 </span>
                                                 <span className="flex items-center gap-1">
                                                     <strong>Duración:</strong> {lic.durationDays} días
                                                 </span>
                                             </div>
                                             <p className="text-xs text-gray-400 mt-2">
-                                                Recepcionada el {formatDate(lic.createdAt)}
+                                                Recepcionada el {isMounted ? formatDate(lic.createdAt) : ''}
                                             </p>
                                         </div>
                                     </div>
