@@ -54,10 +54,7 @@ jobs:
       # -- FIRESTORE INDEXES & RULES DEPLOY --
       - name: Deploy Firestore Indexes and Rules
         env:
-          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GESTION_DE_PERSONAS_SUBE_IA }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
           npm install -g firebase-tools
-          echo "$SERVICE_ACCOUNT" > sa.json
-          export GOOGLE_APPLICATION_CREDENTIALS=sa.json
-          firebase deploy --only firestore --project gestion-de-personas-sube-ia --non-interactive
-          rm sa.json
+          firebase deploy --only firestore --project gestion-de-personas-sube-ia --token "$FIREBASE_TOKEN" --non-interactive
