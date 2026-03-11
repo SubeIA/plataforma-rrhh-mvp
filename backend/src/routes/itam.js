@@ -1,9 +1,9 @@
 import express from 'express';
 import { db as firestore } from '../config/firebase-config.js';
-import { verifyToken as requireAuth, authorize as requireRoles } from '../middleware/auth.js';
+import { verifyToken as requireAuth, requirePermission } from '../middleware/auth.js';
 import asyncHandler from 'express-async-handler';
 import { itamAssetSchema } from '../validators/itam.js';
-import { PRIVILEGED_ROLES } from '../constants/roles.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
@@ -13,7 +13,7 @@ const router = express.Router();
 router.post(
     '/',
     requireAuth,
-    requireRoles(PRIVILEGED_ROLES),
+    requirePermission(PERMISSIONS.MANAGE_ITAM),
     asyncHandler(async (req, res) => {
         const payload = req.body;
 
@@ -62,7 +62,7 @@ router.post(
 router.get(
     '/',
     requireAuth,
-    requireRoles(PRIVILEGED_ROLES),
+    requirePermission(PERMISSIONS.MANAGE_ITAM),
     asyncHandler(async (req, res) => {
         const { user_id } = req.query;
         const companyId = req.user.companyId;
@@ -89,7 +89,7 @@ router.get(
 router.put(
     '/:id/status',
     requireAuth,
-    requireRoles(PRIVILEGED_ROLES),
+    requirePermission(PERMISSIONS.MANAGE_ITAM),
     asyncHandler(async (req, res) => {
         const { status } = req.body;
         const { id } = req.params;

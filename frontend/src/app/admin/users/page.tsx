@@ -115,16 +115,14 @@ export default function AdminUsersPage() {
                                             <select
                                                 className={`text-sm font-semibold px-3 py-1.5 rounded-full border-0 outline-none cursor-pointer
                                                     ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                        u.role === 'hr' ? 'bg-blue-100 text-blue-700' :
-                                                            u.role === 'jefatura' ? 'bg-amber-100 text-amber-700' :
+                                                        u.role === 'super_admin' ? 'bg-amber-100 text-amber-700' :
                                                                 'bg-emerald-100 text-emerald-700'}`}
                                                 value={u.role || 'user'}
                                                 onChange={(e) => handleChangeRole(u.id, e.target.value)}
                                             >
-                                                <option value="user">Usuario</option>
-                                                <option value="hr">RRHH</option>
-                                                <option value="jefatura">Jefatura</option>
-                                                <option value="admin">Admin</option>
+                                                <option value="user">Usuario Estándar</option>
+                                                <option value="admin">Administrador</option>
+                                                <option value="super_admin">Super Admin</option>
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 text-right">

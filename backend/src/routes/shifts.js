@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import validate from '../middleware/validate.js';
 import { createShiftSchema, assignShiftSchema } from '../validators/shifts.js';
 
@@ -11,12 +12,13 @@ const router = Router();
 router.post(
     '/',
     verifyToken,
-    authorize('admin'),
+    requirePermission(PERMISSIONS.MANAGE_SHIFTS),
     validate(createShiftSchema),
     asyncHandler(async (req, res) => {
         const { name, startTime, endTime, toleranceMinutes } = req.body;
 
         const newDoc = await db.collection('shifts').add({
+            companyId: req.user.companyId,
             name,
             startTime,
             endTime,
@@ -31,9 +33,9 @@ router.post(
 router.get(
     '/',
     verifyToken,
-    authorize('admin', 'hr'),
+    requirePermission(PERMISSIONS.MANAGE_SHIFTS),
     asyncHandler(async (req, res) => {
-        const snapshot = await db.collection('shifts').get();
+        const snapshot = await db.collection('shifts').where('companyId', '==', req.user.companyId).get();
         const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(rows);
     })
@@ -43,12 +45,13 @@ router.get(
 router.post(
     '/assign',
     verifyToken,
-    authorize('admin', 'hr'),
+    requirePermission(PERMISSIONS.MANAGE_SHIFTS),
     validate(assignShiftSchema),
     asyncHandler(async (req, res) => {
         const { userId, shiftId, startDate, endDate } = req.body;
 
         const newDoc = await db.collection('user_shifts').add({
+            companyId: req.user.companyId,
             userId,
             shiftId,
             startDate,

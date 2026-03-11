@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/constants/permissions';
 import { apiFetch } from '@/lib/api';
 import { Users, AlertTriangle, Activity, Clock, FileWarning, TrendingUp } from 'lucide-react';
 
@@ -16,13 +18,15 @@ interface KPIs {
 
 export default function AnalyticsDashboardPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
+    const { hasPermission } = usePermissions();
     const [kpis, setKpis] = useState<KPIs | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
         protectRoute();
-        if (!authLoading && user && ['admin', 'hr', 'jefatura'].includes(user.role || '')) {
+        const hasAccess = user && (['super_admin', 'admin'].includes(user.role || '') || hasPermission(PERMISSIONS.VIEW_ANALYTICS));
+        if (!authLoading && hasAccess) {
             fetchKPIs();
         } else if (!authLoading && user) {
             setError('No tienes permisos para acceder a esta vista.');
@@ -53,7 +57,8 @@ export default function AnalyticsDashboardPage() {
         );
     }
 
-    if (!user || !['admin', 'hr', 'jefatura'].includes(user.role || '')) return null;
+    const hasAccess = user && (['super_admin', 'admin'].includes(user.role || '') || hasPermission(PERMISSIONS.VIEW_ANALYTICS));
+    if (!hasAccess) return null;
 
     const statCards = [
         { name: 'Colaboradores Activos', stat: kpis?.totalUsers || 0, icon: Users, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import validate from '../middleware/validate.js';
 import {
     punchSchema,
@@ -10,7 +11,7 @@ import {
 } from '../validators/attendance.js';
 import { AppError } from '../errors/AppError.js';
 import { calculateDailyAttendance } from '../utils/attendanceCalculator.js';
-import { ROLES, PRIVILEGED_ROLES } from '../constants/roles.js';
+import { ROLES } from '../constants/roles.js';
 
 const router = Router();
 
@@ -102,7 +103,8 @@ router.get(
     '/',
     verifyToken,
     asyncHandler(async (req, res) => {
-        const isPrivileged = PRIVILEGED_ROLES.includes(req.user.role);
+        const permissions = req.user.permissions || [];
+        const isPrivileged = permissions.includes(PERMISSIONS.MANAGE_ATTENDANCE) || req.user.role === 'super_admin';
         let { userId, startDate, endDate } = req.query;
 
         let query = db.collection('daily_attendance');
@@ -184,7 +186,8 @@ router.get(
     verifyToken,
     asyncHandler(async (req, res) => {
         const { month_year } = req.query;
-        const isPrivileged = req.user.role === ROLES.ADMIN || req.user.role === ROLES.JEFATURA;
+        const permissions = req.user.permissions || [];
+        const isPrivileged = permissions.includes(PERMISSIONS.MANAGE_ATTENDANCE) || req.user.role === 'super_admin';
         let targetUser = req.user.uid;
 
         if (isPrivileged && req.query.userId) {
@@ -211,7 +214,7 @@ router.get(
 router.get(
     '/admin-summary',
     verifyToken,
-    authorize(ROLES.ADMIN, ROLES.HR),
+    requirePermission(PERMISSIONS.MANAGE_ATTENDANCE),
     asyncHandler(async (req, res) => {
         const { month_year } = req.query;
 
@@ -257,7 +260,7 @@ router.get(
 router.post(
     '/manual',
     verifyToken,
-    authorize(ROLES.ADMIN, ROLES.HR),
+    requirePermission(PERMISSIONS.MANAGE_ATTENDANCE),
     validate(manualAttendanceSchema),
     asyncHandler(async (req, res) => {
         const { userId, date, entry_time, exit_time } = req.body;
@@ -297,7 +300,7 @@ router.post(
 router.put(
     '/:id',
     verifyToken,
-    authorize(ROLES.ADMIN, ROLES.HR),
+    requirePermission(PERMISSIONS.MANAGE_ATTENDANCE),
     validate(updateAttendanceSchema),
     asyncHandler(async (req, res) => {
         const { id } = req.params;

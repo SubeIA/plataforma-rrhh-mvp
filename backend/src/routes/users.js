@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { db, auth } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import validate from '../middleware/validate.js';
 import { createUserSchema, updateUserSchema } from '../validators/users.js';
 import { ConflictError, AppError } from '../errors/AppError.js';
@@ -13,7 +14,7 @@ const router = Router();
 router.get(
     '/',
     verifyToken,
-    authorize(ROLES.ADMIN, ROLES.HR),
+    requirePermission(PERMISSIONS.MANAGE_USERS),
     asyncHandler(async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 50, 200);
         const cursor = req.query.cursor;
@@ -60,7 +61,7 @@ router.get(
 router.post(
     '/',
     verifyToken,
-    authorize(ROLES.ADMIN),
+    requirePermission(PERMISSIONS.MANAGE_USERS),
     validate(createUserSchema),
     asyncHandler(async (req, res) => {
         const { email, password, role, fullName, phone, address, department, position, startDate } = req.body;
@@ -112,7 +113,7 @@ router.post(
 router.put(
     '/:id',
     verifyToken,
-    authorize(ROLES.ADMIN),
+    requirePermission(PERMISSIONS.MANAGE_USERS),
     validate(updateUserSchema),
     asyncHandler(async (req, res) => {
         const { id } = req.params;
@@ -166,7 +167,7 @@ router.put(
 router.delete(
     '/:id',
     verifyToken,
-    authorize(ROLES.ADMIN),
+    requirePermission(PERMISSIONS.MANAGE_USERS),
     asyncHandler(async (req, res) => {
         const { id } = req.params;
 
@@ -209,6 +210,15 @@ router.get(
     verifyToken,
     asyncHandler(async (req, res) => {
         const { id } = req.params;
+        
+        const isSelf = req.user.uid === id;
+        const hasPermission = req.user.permissions?.includes(PERMISSIONS.MANAGE_SHIFTS) || req.user.permissions?.includes(PERMISSIONS.MANAGE_USERS);
+        const isAdmin = req.user.role === ROLES.ADMIN || req.user.role === ROLES.SUPER_ADMIN;
+        
+        if (!isSelf && !hasPermission && !isAdmin) {
+            throw new AppError('No tienes permisos para ver el turno de este usuario', 403);
+        }
+
         const today = new Date().toISOString().split('T')[0];
 
         // Buscar en la subcolección o colección principal los user_shifts

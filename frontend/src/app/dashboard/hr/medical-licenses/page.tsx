@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api';
 import { FileHeart, Search, PlusCircle, CheckCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
@@ -20,6 +21,7 @@ interface MedicalLicense {
 
 export default function HRMedicalLicensesPage() {
     const { token, role } = useAuth();
+    const { hasPermission } = usePermissions();
     const toast = useToast();
     const [licenses, setLicenses] = useState<MedicalLicense[]>([]);
     const [loading, setLoading] = useState(true);
@@ -38,9 +40,9 @@ export default function HRMedicalLicensesPage() {
     const [allUsers, setAllUsers] = useState<any[]>([]); // For the select dropdown
 
     useEffect(() => {
-        if (role !== 'admin' && role !== 'hr') return;
+        if (!hasPermission('manage_medical_licenses') && role !== 'super_admin') return;
         fetchData();
-    }, [role]);
+    }, [role, hasPermission]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -143,7 +145,7 @@ export default function HRMedicalLicensesPage() {
         }
     };
 
-    if (role !== 'admin' && role !== 'hr') {
+    if (!hasPermission('manage_medical_licenses') && role !== 'super_admin') {
         return <div className="p-8 text-center text-red-600">No tienes permisos para ver esta página.</div>;
     }
 

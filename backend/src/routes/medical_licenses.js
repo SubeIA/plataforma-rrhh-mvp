@@ -1,10 +1,11 @@
 import express from 'express';
 const router = express.Router();
 import { db } from '../config/firebase-config.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { createMedicalLicenseSchema, updateMedicalLicenseStatusSchema } from '../validators/medical_licenses.js';
-import { ROLES, PRIVILEGED_ROLES } from '../constants/roles.js';
+import { ROLES } from '../constants/roles.js';
 
 // Helper para parsear la fecha
 function parseStartDate(startDate) {
@@ -27,7 +28,8 @@ router.get('/', verifyToken, asyncHandler(async (req, res) => {
     let queryRef = db.collection('medical_licenses')
         .where('companyId', '==', companyId);
 
-    if (!PRIVILEGED_ROLES.includes(role)) {
+    const isManager = req.user.permissions?.includes(PERMISSIONS.MANAGE_MEDICAL_LICENSES) || req.user.role === 'super_admin';
+    if (!isManager) {
         queryRef = queryRef.where('userId', '==', uid);
     }
 
@@ -42,7 +44,7 @@ router.get('/', verifyToken, asyncHandler(async (req, res) => {
  * Endpoint principal para Recepcionar una licencia electrónica.
  * Solo Admin/HR pueden subir licencias (simula integración con IMED).
  */
-router.post('/', verifyToken, authorize(ROLES.ADMIN, ROLES.HR), asyncHandler(async (req, res) => {
+router.post('/', verifyToken, requirePermission(PERMISSIONS.MANAGE_MEDICAL_LICENSES), asyncHandler(async (req, res) => {
     const validatedData = createMedicalLicenseSchema.parse(req.body);
 
     // Usar el folio como Document ID
@@ -97,7 +99,7 @@ router.post('/', verifyToken, authorize(ROLES.ADMIN, ROLES.HR), asyncHandler(asy
  * Permite cambiar el estado (ej. de RECEPCIONADA a TRAMITADA)
  * Solo Admin/HR.
  */
-router.put('/:folio/status', verifyToken, authorize(ROLES.ADMIN, ROLES.HR), asyncHandler(async (req, res) => {
+router.put('/:folio/status', verifyToken, requirePermission(PERMISSIONS.MANAGE_MEDICAL_LICENSES), asyncHandler(async (req, res) => {
     const { folio } = req.params;
     const { status } = updateMedicalLicenseStatusSchema.parse(req.body);
 

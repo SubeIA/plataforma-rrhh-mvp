@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/constants/permissions';
 import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/api';
 import { Monitor, Phone, Laptop, Key, Box, Plus, Search, CheckCircle } from 'lucide-react';
@@ -24,6 +26,7 @@ interface UserRecord {
 
 export default function AdminITAMPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
+    const { hasPermission } = usePermissions();
     const toast = useToast();
     const [assets, setAssets] = useState<ITAMAsset[]>([]);
     const [users, setUsers] = useState<UserRecord[]>([]);
@@ -45,7 +48,8 @@ export default function AdminITAMPage() {
 
     useEffect(() => {
         protectRoute();
-        if (!authLoading && user && ['admin', 'hr', 'jefatura'].includes(user.role || '')) {
+        const hasAccess = user && (['super_admin', 'admin'].includes(user.role || '') || hasPermission(PERMISSIONS.MANAGE_ITAM));
+        if (!authLoading && hasAccess) {
             fetchData();
         } else if (!authLoading && user) {
             setError('Acceso Denegado. Solo RRHH/TI puede gestionar activos.');
@@ -159,7 +163,8 @@ export default function AdminITAMPage() {
         );
     }
 
-    if (!user || !['admin', 'hr', 'jefatura'].includes(user.role || '')) return null;
+    const hasAccess = user && (['super_admin', 'admin'].includes(user.role || '') || hasPermission(PERMISSIONS.MANAGE_ITAM));
+    if (!hasAccess) return null;
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">

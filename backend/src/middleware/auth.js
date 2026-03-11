@@ -28,12 +28,14 @@ export const verifyToken = async (req, res, next) => {
         const userData = userDoc.data();
         const role = userData.role || 'user';
         const companyId = userData.companyId || null;
+        const permissions = userData.permissions || [];
 
         req.user = {
             uid: decodedToken.uid,
             email: decodedToken.email,
             role,
             companyId,
+            permissions,
         };
         next();
     } catch (err) {
@@ -53,6 +55,29 @@ export const authorize = (...roles) => {
         }
         if (!flatRoles.includes(req.user.role)) {
             return next(new ForbiddenError(`Role '${req.user.role}' is not authorized for this action`));
+        }
+        next();
+    };
+};
+
+/**
+ * Permission-based authorization middleware.
+ * Usage: requirePermission(PERMISSIONS.MANAGE_DOCUMENTS)
+ */
+export const requirePermission = (permission) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return next(new UnauthorizedError());
+        }
+        
+        // Super admins and admins override all granular permissions
+        if (req.user.role === 'super_admin' || req.user.role === 'admin') {
+            return next();
+        }
+
+        const userPerms = req.user.permissions || [];
+        if (!userPerms.includes(permission)) {
+            return next(new ForbiddenError('User does not have required permissions'));
         }
         next();
     };

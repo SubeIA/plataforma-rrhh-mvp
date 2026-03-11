@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { db, auth } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, authorize, requirePermission } from '../middleware/auth.js';
 import { AppError, ConflictError } from '../errors/AppError.js';
 import { ROLES } from '../constants/roles.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 
 const router = Router();
 
@@ -107,7 +108,7 @@ router.get(
 router.post(
     '/users',
     verifyToken,
-    authorize(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+    requirePermission(PERMISSIONS.MANAGE_USERS),
     asyncHandler(async (req, res) => {
         const { email, password, role = ROLES.USER, fullName, department } = req.body;
 
@@ -121,10 +122,10 @@ router.post(
             throw new AppError('No tienes un companyId asignado', 400);
         }
 
-        // admins solo pueden crear roles menores o iguales al suyo
-        const allowedRoles = [ROLES.HR, ROLES.JEFATURA, ROLES.USER];
-        if (req.user.role === ROLES.ADMIN && !allowedRoles.includes(role)) {
-            throw new AppError(`No puedes crear usuarios con rol "${role}"`, 403);
+        // admins solo pueden crear roles permitidos
+        const allowedRoles = [ROLES.USER, ROLES.ADMIN];
+        if (req.user.role !== ROLES.SUPER_ADMIN && role === ROLES.SUPER_ADMIN) {
+            throw new AppError(`No puedes crear usuarios con rol super admin`, 403);
         }
 
         let userRecord;

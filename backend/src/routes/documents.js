@@ -3,11 +3,12 @@ import multer from 'multer';
 import crypto from 'crypto';
 import admin, { db, storage } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import { createDocumentSchema } from '../validators/documents.js';
 import { AppError, NotFoundError } from '../errors/AppError.js';
 import dbController from '../db.js';
-import { ROLES, MANAGEMENT_ROLES } from '../constants/roles.js';
+import { ROLES } from '../constants/roles.js';
 
 const FieldValue = admin.firestore.FieldValue;
 
@@ -52,7 +53,10 @@ router.post(
 
         // Verificar permisos:
         // Un empleado solo puede subirse documentos a sí mismo (y generalmente no lo hacen).
-        if (req.user.uid !== user_id && !MANAGEMENT_ROLES.includes(req.user.role)) {
+        const permissions = req.user.permissions || [];
+        const isManager = permissions.includes(PERMISSIONS.MANAGE_DOCUMENTS) || req.user.role === 'super_admin';
+
+        if (req.user.uid !== user_id && !isManager) {
             throw new AppError('No tienes permisos para subir documentos a este usuario.', 403);
         }
 
@@ -112,7 +116,10 @@ router.get(
         let query = db.collection('documents');
 
         // Empleados solo ven los suyos
-        if (req.user.role === ROLES.USER) {
+        const permissions = req.user.permissions || [];
+        const isManager = permissions.includes(PERMISSIONS.MANAGE_DOCUMENTS) || req.user.role === 'super_admin';
+
+        if (!isManager) {
             query = query.where('user_id', '==', req.user.uid);
         } else {
             // Admin/Jefatura pueden filtrar por user_id
@@ -162,7 +169,10 @@ router.get(
         const docData = docSnap.data();
 
         // Verificamos permisos de lectura
-        if (req.user.role === ROLES.USER && docData.user_id !== req.user.uid) {
+        const permissions = req.user.permissions || [];
+        const isManager = permissions.includes(PERMISSIONS.MANAGE_DOCUMENTS) || req.user.role === 'super_admin';
+
+        if (!isManager && docData.user_id !== req.user.uid) {
             throw new AppError('Acceso denegado a este documento', 403);
         }
 
@@ -189,7 +199,7 @@ router.get(
 router.delete(
     '/:id',
     verifyToken,
-    authorize(ROLES.ADMIN),
+    requirePermission(PERMISSIONS.MANAGE_DOCUMENTS),
     asyncHandler(async (req, res) => {
         if (!process.env.FIREBASE_STORAGE_BUCKET) {
             throw new AppError('Configuración faltante: FIREBASE_STORAGE_BUCKET no está definido en el servidor.', 500);

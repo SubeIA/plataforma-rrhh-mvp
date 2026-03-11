@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/context/ToastContext';
 import { apiFetch } from '@/lib/api';
 import { Plus } from 'lucide-react';
@@ -12,6 +13,7 @@ import UploadModal, { UserRecord } from './components/UploadModal';
 
 export default function HRDocumentsPage() {
     const { user, protectRoute, loading: authLoading } = useAuth();
+    const { hasPermission } = usePermissions();
     const toast = useToast();
 
     const [documents, setDocuments] = useState<DocumentRecord[]>([]);
@@ -32,7 +34,7 @@ export default function HRDocumentsPage() {
 
     useEffect(() => {
         protectRoute();
-        if (!authLoading && user && ['admin', 'hr', 'jefatura'].includes(user.role || '')) {
+        if (!authLoading && user && hasPermission('manage_documents')) {
             fetchData();
         } else if (!authLoading && user) {
             setError('No tienes permisos para acceder a esta vista.');
@@ -144,7 +146,7 @@ export default function HRDocumentsPage() {
         );
     }
 
-    if (!user || !['admin', 'hr', 'jefatura'].includes(user.role || '')) return null;
+    if (!user || !hasPermission('manage_documents')) return null;
 
     // ─── View ─────────────────────────────────────────────────────────────────
 
@@ -183,7 +185,7 @@ export default function HRDocumentsPage() {
                 getUserName={getUserName}
                 onDownload={handleDownload}
                 onDelete={handleDelete}
-                isAdmin={user.role === 'admin'}
+                isAdmin={user.role === 'admin' || user.role === 'super_admin'}
             />
 
             {/* Upload Modal */}

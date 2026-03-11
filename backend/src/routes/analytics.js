@@ -1,8 +1,8 @@
 import express from 'express';
-import { db as firestore } from '../config/firebase-config.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import asyncHandler from '../middleware/asyncHandler.js';
-import { PRIVILEGED_ROLES } from '../constants/roles.js';
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ const getMonthRange = () => {
 router.get(
     '/kpis',
     verifyToken,
-    authorize(...PRIVILEGED_ROLES),
+    requirePermission(PERMISSIONS.VIEW_ANALYTICS),
     asyncHandler(async (req, res) => {
         const { start: monthStart, end: monthEnd } = getMonthRange();
         const companyId = req.user.companyId;

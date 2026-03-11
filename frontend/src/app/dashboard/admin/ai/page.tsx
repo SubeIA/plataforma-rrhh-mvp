@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { apiFetch } from "@/lib/api";
 import { Bot, Activity, BrainCircuit, Shield, AlertTriangle, Search, BarChart3, Users } from "lucide-react";
 
 export default function AITokensPage() {
     const { user, protectRoute, loading } = useAuth();
+    const { hasPermission } = usePermissions();
     const [usageStats, setUsageStats] = useState<any[]>([]);
     const [globalStats, setGlobalStats] = useState({ totalTokens: 0, totalCalls: 0, costEstimate: 0 });
     const [fetchError, setFetchError] = useState("");
@@ -49,7 +51,7 @@ export default function AITokensPage() {
 
     useEffect(() => {
         protectRoute();
-        if (user && user?.role === 'admin') {
+        if (user && hasPermission('view_analytics')) {
             fetchTokenUsage();
         }
     }, [user, loading]);
@@ -60,12 +62,12 @@ export default function AITokensPage() {
         </div>
     );
 
-    if (!user || user?.role !== 'admin') {
+    if (!user || !hasPermission('view_analytics')) {
         if (!loading && user) return (
             <div className="p-8 max-w-lg mx-auto mt-20 glass-card rounded-2xl text-center border-rose-100">
                 <Shield className="mx-auto text-rose-500 mb-4" size={48} />
                 <h1 className="text-2xl font-bold text-rose-700">Acceso Restringido</h1>
-                <p className="text-gray-600 mt-2">No tienes permisos de administrador para ver esta sección.</p>
+                <p className="text-gray-600 mt-2">No tienes permisos de analítica para ver esta sección.</p>
             </div>
         );
         return null;

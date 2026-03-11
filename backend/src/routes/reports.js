@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import { ROLES } from '../constants/roles.js';
 
 const router = Router();
@@ -10,7 +11,7 @@ const router = Router();
 router.get(
     '/payroll',
     verifyToken,
-    authorize(ROLES.ADMIN, ROLES.HR),
+    requirePermission(PERMISSIONS.VIEW_ANALYTICS),
     asyncHandler(async (req, res) => {
         const { startDate, endDate } = req.query;
 

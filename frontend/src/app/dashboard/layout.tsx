@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { getCookie, setCookie } from 'cookies-next';
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PERMISSIONS } from "@/constants/permissions";
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
@@ -32,6 +34,7 @@ export default function DashboardLayout({
     children: React.ReactNode
 }) {
     const { user, loading, logout } = useAuth();
+    const { hasPermission } = usePermissions();
     const pathname = usePathname();
     const router = useRouter();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -62,27 +65,27 @@ export default function DashboardLayout({
 
     const navItems = [
         // Empleado Options
-        { name: 'Mi Asistencia', href: '/dashboard', icon: Clock, roles: ['admin', 'hr', 'jefatura', 'user'] },
-        { name: 'Solicitudes', href: '/dashboard/requests', icon: FileText, roles: ['admin', 'hr', 'jefatura', 'user'] },
-        { name: 'Licencias Médicas', href: '/dashboard/medical-licenses', icon: Stethoscope, roles: ['admin', 'hr', 'jefatura', 'user'] },
-        { name: 'Mis Documentos', href: '/dashboard/documents', icon: Folder, roles: ['admin', 'hr', 'jefatura', 'user'] },
-        { name: 'ITAM', href: '/dashboard/itam', icon: Cpu, roles: ['admin', 'hr', 'jefatura', 'user'] },
-        { name: 'Ley Karin', href: '/dashboard/karin', icon: ShieldAlert, roles: ['admin', 'hr', 'jefatura', 'user'] },
+        { name: 'Mi Asistencia', href: '/dashboard', icon: Clock, roles: ['admin', 'super_admin', 'user'] },
+        { name: 'Solicitudes', href: '/dashboard/requests', icon: FileText, roles: ['admin', 'super_admin', 'user'] },
+        { name: 'Licencias Médicas', href: '/dashboard/medical-licenses', icon: Stethoscope, roles: ['admin', 'super_admin', 'user'] },
+        { name: 'Mis Documentos', href: '/dashboard/documents', icon: Folder, roles: ['admin', 'super_admin', 'user'] },
+        { name: 'ITAM', href: '/dashboard/itam', icon: Cpu, roles: ['admin', 'super_admin', 'user'] },
+        { name: 'Ley Karin', href: '/dashboard/karin', icon: ShieldAlert, roles: ['admin', 'super_admin', 'user'] },
 
-        // HR Options
-        { name: 'Gestión RRHH', href: '/dashboard/hr', icon: Users, roles: ['admin', 'hr'] },
-        { name: 'Bandeja Solicitudes', href: '/dashboard/hr/requests', icon: Inbox, roles: ['admin', 'hr', 'jefatura'] },
-        { name: 'Licencias (RRHH)', href: '/dashboard/hr/medical-licenses', icon: Briefcase, roles: ['admin', 'hr'] },
-        { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', icon: FileSpreadsheet, roles: ['admin', 'hr'] },
-        { name: 'Analíticas', href: '/dashboard/hr/analytics', icon: Cpu, roles: ['admin', 'hr'] },
-        { name: 'Documentos', href: '/dashboard/hr/documents', icon: Folder, roles: ['admin', 'hr'] },
-        { name: 'Gestión ITAM', href: '/dashboard/hr/itam', icon: Cpu, roles: ['admin', 'hr'] },
-        { name: 'Gestión Ley Karin', href: '/dashboard/hr/karin', icon: ShieldAlert, roles: ['admin', 'hr'] },
+        // HR Options (Visible primarily to Admins or anyone with the specific permission)
+        { name: 'Gestión RRHH', href: '/dashboard/hr', icon: Users, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.VIEW_HR_PANEL] },
+        { name: 'Bandeja Solicitudes', href: '/dashboard/hr/requests', icon: Inbox, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.APPROVE_REQUESTS] },
+        { name: 'Licencias (RRHH)', href: '/dashboard/hr/medical-licenses', icon: Briefcase, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.MANAGE_MEDICAL_LICENSES] },
+        { name: 'Reportes y Nómina', href: '/dashboard/hr/reports', icon: FileSpreadsheet, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.VIEW_ANALYTICS] },
+        { name: 'Analíticas', href: '/dashboard/hr/analytics', icon: Cpu, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.VIEW_ANALYTICS] },
+        { name: 'Documentos', href: '/dashboard/hr/documents', icon: Folder, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.MANAGE_DOCUMENTS] },
+        { name: 'Gestión ITAM', href: '/dashboard/hr/itam', icon: Cpu, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.MANAGE_ITAM] },
+        { name: 'Gestión Ley Karin', href: '/dashboard/hr/karin', icon: ShieldAlert, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.MANAGE_KARIN_REPORTS, PERMISSIONS.VIEW_KARIN_REPORTS] },
 
         // Admin Options
-        { name: 'Admin Usuarios', href: '/dashboard/admin', icon: Settings, roles: ['admin'] },
-        { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', icon: Calendar, roles: ['admin'] },
-        { name: 'IA & Tokens', href: '/dashboard/admin/ai', icon: Cpu, roles: ['admin'] },
+        { name: 'Admin Usuarios', href: '/dashboard/admin', icon: Settings, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.MANAGE_USERS] },
+        { name: 'Gestión Turnos', href: '/dashboard/admin/shifts', icon: Calendar, roles: ['admin', 'super_admin'], permissions: [PERMISSIONS.MANAGE_SHIFTS] },
+        { name: 'IA & Tokens', href: '/dashboard/admin/ai', icon: Cpu, roles: ['admin', 'super_admin'] },
 
         // Super Admin Options
         { name: 'Empresas', href: '/dashboard/super-admin/companies', icon: Building2, roles: ['super_admin'] },
@@ -135,7 +138,11 @@ export default function DashboardLayout({
                         <nav className="px-3 space-y-1">
                             {(() => {
                                 const effectiveRole = lastKnownRole;
-                                const visibleItems = navItems.filter(item => item.roles.includes(effectiveRole));
+                                const visibleItems = navItems.filter(item => {
+                                    if (item.roles.includes(effectiveRole)) return true;
+                                    if (item.permissions && item.permissions.some(p => hasPermission(p))) return true;
+                                    return false;
+                                });
                                 // Find the single best match: longest href that is a prefix of pathname
                                 const bestMatch = visibleItems.reduce<string | null>((best, item) => {
                                     const matches = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -206,7 +213,11 @@ export default function DashboardLayout({
                     <nav className="px-3 space-y-1">
                         {(() => {
                             const effectiveRole = lastKnownRole;
-                            const visibleItems = navItems.filter(item => item.roles.includes(effectiveRole));
+                            const visibleItems = navItems.filter(item => {
+                                if (item.roles.includes(effectiveRole)) return true;
+                                if (item.permissions && item.permissions.some(p => hasPermission(p))) return true;
+                                return false;
+                            });
                             // Find the single best match: longest href that is a prefix of pathname
                             const bestMatch = visibleItems.reduce<string | null>((best, item) => {
                                 const matches = pathname === item.href || pathname.startsWith(item.href + '/');

@@ -24,12 +24,14 @@ import {
 } from "firebase/auth";
 import UserModal from "./components/UserModal";
 import { useToast } from "@/context/ToastContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Users, History, UserPlus, Edit3, Trash2, Shield, LayoutGrid, List, MapPin } from "lucide-react";
 
 const db = getFirestore(app);
 
 export default function AdminPage() {
     const { user, protectRoute, loading } = useAuth();
+    const { hasPermission } = usePermissions();
     const toast = useToast();
     const [users, setUsers] = useState<any[]>([]);
     const [attendance, setAttendance] = useState<any[]>([]);
@@ -86,7 +88,7 @@ export default function AdminPage() {
 
     useEffect(() => {
         protectRoute();
-        if (user && user?.role === 'admin') {
+        if (user && hasPermission('manage_users')) {
             fetchUsers();
             fetchAttendance();
         }
@@ -144,6 +146,7 @@ export default function AdminPage() {
                         address: formData.address || '',
                         startDate: formData.startDate || '',
                         status: 'active',
+                        permissions: formData.permissions || [],
                         createdAt: new Date().toISOString(),
                     });
                 } finally {
@@ -172,12 +175,12 @@ export default function AdminPage() {
         </div>
     );
 
-    if (!user || (user?.role !== 'admin' && user?.role !== 'SUPER_ADMIN' && user?.role !== 'super_admin')) {
+    if (!user || !hasPermission('manage_users')) {
         if (!loading && user) return (
             <div className="p-8 max-w-lg mx-auto mt-20 glass-card rounded-2xl text-center border-rose-100">
                 <Shield className="mx-auto text-rose-500 mb-4" size={48} />
                 <h1 className="text-2xl font-bold text-rose-700">Acceso Restringido</h1>
-                <p className="text-gray-600 mt-2">No tienes permisos de administrador para ver esta sección.</p>
+                <p className="text-gray-600 mt-2">No tienes permisos para organizar empleados.</p>
             </div>
         );
         return null;
@@ -264,7 +267,7 @@ export default function AdminPage() {
                                             <div className="text-gray-400 text-xs">{u.department}</div>
                                         </td>
                                         <td className="px-4 py-4">
-                                            <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase ${u.role === 'admin' ? 'bg-amber-100 text-amber-700' : u.role === 'hr' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                            <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase ${u.role === 'admin' ? 'bg-amber-100 text-amber-700' : u.role === 'super_admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                                 {u.role}
                                             </span>
                                             {u.status === 'inactive' && (

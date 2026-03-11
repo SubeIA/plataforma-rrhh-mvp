@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { handleChat, getAggregatedTokenUsage } from '../controllers/aiController.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 
 const router = Router();
 
@@ -8,6 +9,6 @@ const router = Router();
 router.use(verifyToken);
 
 router.post('/chat', handleChat);
-router.get('/token-usage', authorize('admin'), getAggregatedTokenUsage);
+router.get('/token-usage', verifyToken, requirePermission(PERMISSIONS.VIEW_ANALYTICS), getAggregatedTokenUsage);
 
 export default router;

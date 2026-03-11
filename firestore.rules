@@ -8,20 +8,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return getUserData().role;
+    }
+
+    function getUserPermissions() {
+      let data = getUserData();
+      return data.keys().hasAll(['permissions']) ? data.permissions : [];
     }
 
     function isAdmin() {
-      return isSignedIn() && getUserRole() in ['admin', 'SUPER_ADMIN'];
+      return isSignedIn() && getUserRole() in ['admin', 'super_admin', 'SUPER_ADMIN'];
     }
 
-    function isHR() {
-      return isSignedIn() && getUserRole() == 'hr';
-    }
-
-    function isAdminOrHR() {
-      return isSignedIn() && getUserRole() in ['admin', 'hr', 'SUPER_ADMIN'];
+    function hasPermission(perm) {
+      return isSignedIn() && (perm in getUserPermissions() || getUserRole() in ['super_admin', 'SUPER_ADMIN']);
     }
 
     function isOwner(userId) {
@@ -30,103 +35,101 @@ service cloud.firestore {
 
     // ── Users ──
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin() ||
+      allow read: if isOwner(userId) || hasPermission('manage_users') || hasPermission('manage_attendance');
+      allow create: if hasPermission('manage_users');
+      allow update: if hasPermission('manage_users') ||
                        (isOwner(userId) &&
-                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status']));
-      allow delete: if isAdmin();
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'permissions']));
+      allow delete: if hasPermission('manage_users');
     }
 
     // ── Profiles ──
     match /profiles/{userId} {
-      allow read: if isOwner(userId) || isAdminOrHR();
-      allow create, update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow read: if isOwner(userId) || hasPermission('manage_users') || hasPermission('manage_attendance');
+      allow create, update: if isOwner(userId) || hasPermission('manage_users');
+      allow delete: if hasPermission('manage_users');
     }
 
     // ── Daily Attendance ──
     match /daily_attendance/{recordId} {
       allow read: if isSignedIn() &&
-                     (resource.data.user_id == request.auth.uid || isAdminOrHR());
+                     (resource.data.user_id == request.auth.uid || hasPermission('manage_attendance'));
       allow create: if isSignedIn();
-      allow update: if isAdminOrHR();
-      allow delete: if isAdmin();
+      allow update: if hasPermission('manage_attendance');
+      allow delete: if hasPermission('manage_attendance');
     }
 
     // ── Attendance Logs ──
     match /attendance_logs/{logId} {
       allow read: if isSignedIn() && 
-                     (resource.data.userId == request.auth.uid || isAdminOrHR());
+                     (resource.data.userId == request.auth.uid || hasPermission('manage_attendance'));
       allow create: if isSignedIn();
-      allow update: if isAdminOrHR();
-      allow delete: if isAdmin();
+      allow update: if hasPermission('manage_attendance');
+      allow delete: if hasPermission('manage_attendance');
     }
 
     // ── Attendance (legacy) ──
     match /attendance/{logId} {
       allow read: if isSignedIn() &&
-                     (resource.data.userId == request.auth.uid || isAdminOrHR());
+                     (resource.data.userId == request.auth.uid || hasPermission('manage_attendance'));
       allow create: if isSignedIn();
-      allow update: if isAdminOrHR();
-      allow delete: if isAdmin();
+      allow update: if hasPermission('manage_attendance');
+      allow delete: if hasPermission('manage_attendance');
     }
 
     // ── Requests (leave, permissions, etc.) ──
     match /requests/{requestId} {
       allow read: if isSignedIn() &&
-                     (resource.data.userId == request.auth.uid || isAdminOrHR() ||
-                      getUserRole() == 'jefatura');
+                     (resource.data.userId == request.auth.uid || hasPermission('approve_requests'));
       allow create: if isSignedIn();
-      allow update: if isAdminOrHR() || getUserRole() == 'jefatura';
-      allow delete: if isAdmin();
+      allow update: if hasPermission('approve_requests');
+      allow delete: if hasPermission('approve_requests');
     }
 
     // ── Documents ──
     match /documents/{docId} {
       allow read: if isSignedIn() &&
-                     (resource.data.userId == request.auth.uid || isAdminOrHR() ||
-                      getUserRole() == 'jefatura');
-      allow create: if isAdminOrHR();
-      allow update: if isAdminOrHR();
-      allow delete: if isAdmin();
+                     (resource.data.user_id == request.auth.uid || hasPermission('manage_documents'));
+      allow create: if isSignedIn();
+      allow update: if hasPermission('manage_documents');
+      allow delete: if hasPermission('manage_documents');
     }
 
     // ── Shifts ──
     match /shifts/{shiftId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdminOrHR();
+      allow create, update, delete: if hasPermission('manage_shifts');
     }
 
     // ── Shift assignments ──
     match /shift_assignments/{assignmentId} {
       allow read: if isSignedIn() &&
-                     (resource.data.userId == request.auth.uid || isAdminOrHR());
-      allow create, update, delete: if isAdminOrHR();
+                     (resource.data.userId == request.auth.uid || hasPermission('manage_shifts'));
+      allow create, update, delete: if hasPermission('manage_shifts');
     }
 
     // ── Medical licenses ──
     match /medical_licenses/{licenseId} {
       allow read: if isSignedIn() &&
-                     (resource.data.user_id == request.auth.uid || isAdminOrHR());
+                     (resource.data.userId == request.auth.uid || hasPermission('manage_medical_licenses'));
       allow create: if isSignedIn();
-      allow update: if isAdminOrHR();
-      allow delete: if isAdmin();
+      allow update: if hasPermission('manage_medical_licenses');
+      allow delete: if hasPermission('manage_medical_licenses');
     }
 
     // ── Karin (sensitive - restricted to admin) ──
     match /karin_reports/{reportId} {
-      allow read: if isAdmin();
+      allow read: if hasPermission('view_karin_reports');
       allow create: if isSignedIn();
-      allow update: if isAdmin();
+      allow update: if hasPermission('manage_karin_reports');
       allow delete: if false;
     }
 
     // ── ITAM (IT Asset Management) ──
     match /itam_assets/{assetId} {
       allow read: if isSignedIn();
-      allow create, update: if isAdminOrHR() || getUserRole() == 'jefatura';
-      allow delete: if isAdmin();
+      allow create, update: if hasPermission('manage_itam');
+      allow delete: if hasPermission('manage_itam');
     }
 
     // ── Audit log (append-only, admin read) ──
@@ -138,7 +141,7 @@ service cloud.firestore {
 
     // ── Analytics (read-only for privileged) ──
     match /analytics/{docId} {
-      allow read: if isAdminOrHR() || getUserRole() == 'jefatura';
+      allow read: if hasPermission('view_analytics');
       allow write: if isAdmin();
     }
 
@@ -148,6 +151,12 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
+    }
+
+    match /companies/{companyId} {
+      allow read: if isSignedIn() || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
     }
 
     // ── Deny everything else by default (no wildcard) ──

@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 
 export default function ShiftManagementPage() {
     const { user, protectRoute, loading } = useAuth();
+    const { hasPermission } = usePermissions();
     const toast = useToast();
     const [shifts, setShifts] = useState([]);
     const [users, setUsers] = useState([]);
@@ -40,7 +42,7 @@ export default function ShiftManagementPage() {
 
     useEffect(() => {
         protectRoute();
-        if (user && (user?.role === 'admin' || user?.role === 'hr')) {
+        if (user && hasPermission('manage_shifts')) {
             fetchData();
         }
     }, [user, loading]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -83,7 +85,7 @@ export default function ShiftManagementPage() {
     };
 
     if (loading) return <p className="p-8">Cargando...</p>;
-    if (!user || user?.role !== 'admin') return <p className="p-8 text-red-600">Acceso denegado</p>;
+    if (!user || !hasPermission('manage_shifts')) return <p className="p-8 text-red-600">Acceso denegado</p>;
 
     return (
         <div className="p-8 max-w-7xl mx-auto">

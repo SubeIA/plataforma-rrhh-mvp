@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 
 export default function HRRequestsPage() {
     const { user, protectRoute, loading } = useAuth();
+    const { hasPermission } = usePermissions();
     const toast = useToast();
     const [requests, setRequests] = useState<Record<string, any>[]>([]);
 
@@ -29,7 +31,7 @@ export default function HRRequestsPage() {
 
     useEffect(() => {
         protectRoute();
-        if (user && (user?.role === 'admin' || user?.role === 'hr')) {
+        if (user && hasPermission('approve_requests')) {
             fetchRequests();
         }
     }, [user, loading]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -53,7 +55,7 @@ export default function HRRequestsPage() {
     };
 
     if (loading) return <p className="p-8">Cargando...</p>;
-    if (!user || (user?.role !== 'admin' && user?.role !== 'hr')) {
+    if (!user || !hasPermission('approve_requests')) {
         return <p className="p-8 text-red-600">No tienes permisos.</p>;
     }
 

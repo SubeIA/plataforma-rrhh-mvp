@@ -1,11 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PERMISSIONS } from "@/constants/permissions";
 import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 
 export default function ReportsPage() {
     const { user, protectRoute, loading } = useAuth();
+    const { hasPermission } = usePermissions();
     const toast = useToast();
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -66,7 +69,9 @@ export default function ReportsPage() {
     };
 
     if (loading) return <p className="p-8">Cargando...</p>;
-    if (!user || (user.role !== 'admin' && user.role !== 'hr')) return <p className="p-8 text-red-600">Acceso Denegado</p>;
+    
+    const hasAccess = user && (['super_admin', 'admin'].includes(user.role || '') || hasPermission(PERMISSIONS.VIEW_ANALYTICS));
+    if (!hasAccess) return <p className="p-8 text-red-600">Acceso Denegado</p>;
 
     return (
         <div className="p-8 max-w-7xl mx-auto">

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/api";
 import CorrectionModal from "./components/CorrectionModal";
@@ -9,6 +10,7 @@ import UploadModal from "./components/UploadModal";
 
 export default function HRPage() {
     const { user, protectRoute, loading } = useAuth();
+    const { hasPermission } = usePermissions();
     const toast = useToast();
     const [attendance, setAttendance] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
@@ -64,7 +66,7 @@ export default function HRPage() {
 
     useEffect(() => {
         protectRoute();
-        if (user && (user?.role === 'admin' || user?.role === 'hr')) {
+        if (user && hasPermission('view_hr_panel')) {
             fetchAttendance();
             fetchUsers();
         }
@@ -130,7 +132,7 @@ export default function HRPage() {
     };
 
     if (loading) return <p className="p-8">Cargando...</p>;
-    if (!user || (user?.role !== 'admin' && user?.role !== 'hr')) {
+    if (!user || !hasPermission('view_hr_panel')) {
         if (!loading && user) return <p className="p-8 text-red-600">No tienes permisos de RRHH.</p>;
         return null;
     }

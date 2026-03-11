@@ -18,6 +18,7 @@ interface User {
     uid: string;
     email: string;
     role: string;
+    permissions?: string[];
     companyId: string | null;
     [key: string]: any;
 }
@@ -25,7 +26,8 @@ interface User {
 interface AuthContextType {
     user: User | null;
     token: string | null;
-    role: "super_admin" | "admin" | "hr" | "jefatura" | "user" | null;
+    role: "super_admin" | "admin" | "user" | null;
+    permissions: string[];
     companyId: string | null;
     loading: boolean;
     login: (email: string, password: any) => Promise<boolean>;
@@ -39,7 +41,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
-    const [role, setRole] = useState<"super_admin" | "admin" | "hr" | "jefatura" | "user" | null>(null);
+    const [role, setRole] = useState<"super_admin" | "admin" | "user" | null>(null);
+    const [permissions, setPermissions] = useState<string[]>([]);
     const [companyId, setCompanyId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
@@ -59,16 +62,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                     let userRole: string = "user";
                     let userCompanyId: string | null = null;
+                    let userPermissions: string[] = [];
 
                     if (userDoc.exists()) {
                         const data = userDoc.data();
                         userRole = data.role || "user";
                         userCompanyId = data.companyId || null;
+                        userPermissions = data.permissions || [];
                     } else {
                         console.warn('Usuario no encontrado en la colección users. Usando rol por defecto "user".');
                     }
 
+                    // En caso de que queden usuarios legacy con roles viejos, los pasamos preventivamente al base inferior para que no rompa el app
+                    if (!["super_admin", "admin", "user"].includes(userRole)) {
+                        userRole = "user"; 
+                    }
+
                     setRole(userRole as any);
+                    setPermissions(userPermissions);
                     setCompanyId(userCompanyId);
                     // Persist role in cookie so SSR can read it synchronously
                     setCookie('lastKnownRole', userRole, { maxAge: 60 * 60 * 24 * 7 }); // 1 week
@@ -77,6 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         uid: firebaseUser.uid,
                         email: firebaseUser.email || '',
                         role: userRole,
+                        permissions: userPermissions,
                         companyId: userCompanyId,
                     });
                 } catch (e) {
@@ -88,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 setUser(null);
                 setRole(null);
+                setPermissions([]);
                 setToken(null);
                 setCompanyId(null);
                 deleteCookie('lastKnownRole');
@@ -138,7 +151,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, role, companyId, loading, login, logout, resetPassword, protectRoute }}>
+        <AuthContext.Provider value={{ user, token, role, permissions, companyId, loading, login, logout, resetPassword, protectRoute }}>
             {children}
         </AuthContext.Provider>
     );

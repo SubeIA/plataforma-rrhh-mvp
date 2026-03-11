@@ -13,12 +13,13 @@ export interface PaginatedResponse<T> {
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
-export type UserRole = "admin" | "hr" | "jefatura" | "user";
+export type UserRole = "super_admin" | "admin" | "user";
 
 export interface ApiUser {
     id: string;
     email: string;
     role: UserRole;
+    permissions?: string[];
     name?: string;
     fullName?: string;
     rut?: string;

@@ -1,6 +1,7 @@
 import express from 'express';
 import { db as firestore } from '../config/firebase-config.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 import asyncHandler from '../middleware/asyncHandler.js';
 import { createKarinReportSchema } from '../validators/karin.js';
 import crypto from 'crypto';
@@ -96,7 +97,7 @@ router.post(
 router.get(
     '/',
     verifyToken,
-    authorize(ROLES.ADMIN),
+    requirePermission(PERMISSIONS.VIEW_KARIN_REPORTS),
     asyncHandler(async (req, res) => {
         const reportsSnapshot = await firestore.collection('karin_reports')
             .where('companyId', '==', req.user.companyId)
@@ -123,7 +124,7 @@ router.get(
 router.put(
     '/:id/status',
     verifyToken,
-    authorize(ROLES.ADMIN),
+    requirePermission(PERMISSIONS.MANAGE_KARIN_REPORTS),
     asyncHandler(async (req, res) => {
         const { status } = req.body;
         const { id } = req.params;

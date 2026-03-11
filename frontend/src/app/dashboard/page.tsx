@@ -21,13 +21,6 @@ export default function DashboardPage() {
         protectRoute();
     }, [user, authLoading]);
 
-    // super_admin no tiene empresa ni asistencia, redirigir a su panel
-    useEffect(() => {
-        if (!authLoading && role === 'super_admin') {
-            router.replace('/dashboard/super-admin/companies');
-        }
-    }, [authLoading, role, router]);
-
     // React Query para el Historial (Autocacheo, auto-retry, no-useEffect boilerplate)
     const { data: history = [], isLoading: isHistoryLoading } = useQuery({
         queryKey: ['attendanceHistory', user?.uid],

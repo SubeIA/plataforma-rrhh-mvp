@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { db } from '../config/firebase-config.js';
 import asyncHandler from '../middleware/asyncHandler.js';
-import { verifyToken, authorize } from '../middleware/auth.js';
+import { verifyToken, requirePermission } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
 import { createRequestSchema, updateRequestStatusSchema } from '../validators/requests.js';
 import { ROLES, MANAGEMENT_ROLES } from '../constants/roles.js';
+import { PERMISSIONS } from '../constants/permissions.js';
 
 const router = Router();
 
@@ -46,7 +47,7 @@ router.get(
     verifyToken,
     asyncHandler(async (req, res) => {
         const role = req.user.role;
-        const isPrivileged = MANAGEMENT_ROLES.includes(role);
+        const isPrivileged = MANAGEMENT_ROLES.includes(role) || (req.user.permissions || []).includes(PERMISSIONS.APPROVE_REQUESTS);
         const { mode, status } = req.query;
         const limit = Math.min(parseInt(req.query.limit) || 30, 100);
         const cursor = req.query.cursor;
@@ -88,14 +89,16 @@ router.get(
 router.put(
     '/:id/status',
     verifyToken,
-    authorize(ROLES.ADMIN, ROLES.JEFATURA),
+    requirePermission(PERMISSIONS.APPROVE_REQUESTS),
     validate(updateRequestStatusSchema),
     asyncHandler(async (req, res) => {
         const { status, response } = req.body;
         const role = req.user.role;
 
+        const isAdmin = role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
+
         // Validation Rules:
-        // Jefatura can only transition PENDING -> VISADO or REJECTED
+        // Users with APPROVE_REQUESTS (but no Admin role) can only transition PENDING -> VISADO or REJECTED
         // Admin can transition VISADO -> APPROVED or PENDING -> APPROVED or REJECTED
 
         const requestDoc = await db.collection('requests').doc(req.params.id).get();
@@ -105,9 +108,9 @@ router.put(
 
         const currentStatus = requestDoc.data().status;
 
-        if (role === ROLES.JEFATURA) {
+        if (!isAdmin) {
             if (status !== 'VISADO' && status !== 'REJECTED') {
-                return res.status(403).json({ error: "Jefatura solo puede VISAR o RECHAZAR" });
+                return res.status(403).json({ error: "Solo los administradores pueden APROBAR. Los supervisores solo pueden VISAR o RECHAZAR" });
             }
             if (currentStatus !== 'PENDING') {
                 return res.status(400).json({ error: "Solo puede visar solicitudes PENDIENTES" });

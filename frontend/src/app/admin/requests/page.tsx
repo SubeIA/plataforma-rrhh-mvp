@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 
@@ -29,6 +30,7 @@ interface OffRequest {
 
 export default function RequestsAdminPage() {
     const { user, token, role } = useAuth();
+    const { hasPermission } = usePermissions();
     const [requests, setRequests] = useState<OffRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -40,10 +42,10 @@ export default function RequestsAdminPage() {
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
-        if (user && token && (role === "admin" || role === "jefatura")) {
+        if (user && token && hasPermission('approve_requests')) {
             fetchRequests();
         }
-    }, [user, token, role, statusFilter]);
+    }, [user, token, hasPermission, statusFilter]);
 
     const fetchRequests = async () => {
         setLoading(true);
@@ -240,7 +242,7 @@ export default function RequestsAdminPage() {
                                 Rechazar
                             </button>
 
-                            {role === "jefatura" && selectedRequest.status === "PENDING" && (
+                            {hasPermission('approve_requests') && selectedRequest.status === "PENDING" && (
                                 <button
                                     onClick={() => handleAction(selectedRequest.id, "VISADO")}
                                     disabled={processing}
@@ -250,7 +252,7 @@ export default function RequestsAdminPage() {
                                 </button>
                             )}
 
-                            {role === "admin" && (
+                            {hasPermission('manage_users') && (
                                 <button
                                     onClick={() => handleAction(selectedRequest.id, "APPROVED")}
                                     disabled={processing}
