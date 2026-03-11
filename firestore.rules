@@ -13,7 +13,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && getUserRole() == 'admin';
+      return isSignedIn() && getUserRole() in ['admin', 'SUPER_ADMIN'];
     }
 
     function isHR() {
@@ -21,7 +21,7 @@ service cloud.firestore {
     }
 
     function isAdminOrHR() {
-      return isSignedIn() && getUserRole() in ['admin', 'hr'];
+      return isSignedIn() && getUserRole() in ['admin', 'hr', 'SUPER_ADMIN'];
     }
 
     function isOwner(userId) {
@@ -49,6 +49,15 @@ service cloud.firestore {
     match /daily_attendance/{recordId} {
       allow read: if isSignedIn() &&
                      (resource.data.user_id == request.auth.uid || isAdminOrHR());
+      allow create: if isSignedIn();
+      allow update: if isAdminOrHR();
+      allow delete: if isAdmin();
+    }
+
+    // ── Attendance Logs ──
+    match /attendance_logs/{logId} {
+      allow read: if isSignedIn() && 
+                     (resource.data.userId == request.auth.uid || isAdminOrHR());
       allow create: if isSignedIn();
       allow update: if isAdminOrHR();
       allow delete: if isAdmin();

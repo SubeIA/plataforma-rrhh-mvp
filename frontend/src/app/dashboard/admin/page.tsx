@@ -172,7 +172,7 @@ export default function AdminPage() {
         </div>
     );
 
-    if (!user || user?.role !== 'admin') {
+    if (!user || (user?.role !== 'admin' && user?.role !== 'SUPER_ADMIN' && user?.role !== 'super_admin')) {
         if (!loading && user) return (
             <div className="p-8 max-w-lg mx-auto mt-20 glass-card rounded-2xl text-center border-rose-100">
                 <Shield className="mx-auto text-rose-500 mb-4" size={48} />
