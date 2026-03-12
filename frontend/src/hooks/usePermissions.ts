@@ -2,7 +2,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Permission } from '@/constants/permissions';
 
 export const usePermissions = () => {
-    const { role, permissions } = useAuth();
+    // FE-05 FIX: Expose loading so consumers can avoid rendering restricted content
+    // before Firebase Auth has resolved and the real role/permissions are known.
+    const { role, permissions, loading } = useAuth();
 
     /**
      * Revisa si el usuario activo tiene un permiso en específico.
@@ -38,6 +40,7 @@ export const usePermissions = () => {
     return {
         hasPermission,
         hasAnyPermission,
-        hasAllPermissions
+        hasAllPermissions,
+        loading  // FE-05: expose for consumers to gate content on auth resolution
     };
 };

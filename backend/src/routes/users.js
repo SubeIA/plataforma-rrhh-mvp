@@ -163,7 +163,11 @@ router.put(
     })
 );
 
-// DELETE /api/users/:id — Admin: delete user
+// DELETE /api/users/:id — Admin: soft-delete user
+// MT-02 FIX: Uses soft-delete instead of hard delete to:
+//   1. Prevent orphaned data in related collections
+//   2. Preserve audit trail (records stay linked to the user's ID)
+//   3. Avoid cascading data integrity issues in analytics/reports
 router.delete(
     '/:id',
     verifyToken,
@@ -180,26 +184,49 @@ router.delete(
             throw new AppError('Cannot delete users from another company', 403);
         }
 
-        try {
-            // Borramos de Firebase Auth
-            await auth.deleteUser(id);
+        const deletedAt = new Date().toISOString();
 
-            // Borramos documentos (users y profiles)
-            await db.collection('users').doc(id).delete();
-            await db.collection('profiles').doc(id).delete();
+        try {
+            // 1. Disable in Firebase Auth (prevents login without destroying identity)
+            await auth.updateUser(id, { disabled: true });
+
+            // 2. Soft-delete the user doc (preserves record linkage in logs/reports)
+            await db.collection('users').doc(id).update({
+                status: 'deleted',
+                deletedAt,
+                deletedBy: req.user.uid
+            });
+
+            // 3. Soft-delete the profile doc
+            await db.collection('profiles').doc(id).update({
+                status: 'deleted',
+                deletedAt
+            });
+
+            // 4. Batch cleanup of related documents to remove operational orphans
+            const batch = db.batch();
+            const relatedCollections = ['shift_assignments', 'notifications'];
+
+            for (const collectionName of relatedCollections) {
+                const snap = await db.collection(collectionName)
+                    .where('userId', '==', id)
+                    .get();
+                snap.docs.forEach(doc => batch.delete(doc.ref));
+            }
+            await batch.commit();
 
             await db.collection('audit_log').add({
                 userId: req.user.uid,
-                action: 'DELETE',
+                action: 'SOFT_DELETE',
                 tableName: 'users',
                 recordId: id,
-                details: "Deleted user",
-                timestamp: new Date().toISOString()
+                details: 'User soft-deleted: Auth disabled, status=deleted, operational records cleaned',
+                timestamp: deletedAt
             });
 
-            res.json({ message: 'User deleted' });
+            res.json({ message: 'User deactivated successfully' });
         } catch (error) {
-            throw new AppError('Error deleting user: ' + error.message, 500);
+            throw new AppError('Error deactivating user: ' + error.message, 500);
         }
     })
 );
@@ -221,10 +248,13 @@ router.get(
 
         const today = new Date().toISOString().split('T')[0];
 
-        // Buscar en la subcolección o colección principal los user_shifts
-        const userShiftsRef = db.collection('user_shifts');
-        const snapshot = await userShiftsRef
+        // MT-01 FIX: Use 'shift_assignments' — the collection protected by Firestore Security Rules.
+        // The previous 'user_shifts' collection had no security rule coverage.
+        // Also filter by companyId to enforce tenant isolation.
+        const shiftAssignmentsRef = db.collection('shift_assignments');
+        const snapshot = await shiftAssignmentsRef
             .where('userId', '==', id)
+            .where('companyId', '==', req.user.companyId)
             .get();
 
         if (snapshot.empty) {

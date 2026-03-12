@@ -109,10 +109,20 @@ router.get(
 
         let query = db.collection('daily_attendance');
 
+        // SEC-03 FIX: Always filter by companyId first when privileged,
+        // then optionally narrow by specific userId.
+        // A user without privileges only sees their own records.
         if (!isPrivileged) {
             query = query.where('user_id', '==', req.user.uid);
-        } else if (userId) {
-            query = query.where('user_id', '==', userId);
+        } else {
+            // Privileged users (MANAGE_ATTENDANCE / super_admin) must still stay
+            // within their own company's data.
+            if (req.user.companyId) {
+                query = query.where('companyId', '==', req.user.companyId);
+            }
+            if (userId) {
+                query = query.where('user_id', '==', userId);
+            }
         }
 
         if (startDate) {
@@ -265,6 +275,15 @@ router.post(
     asyncHandler(async (req, res) => {
         const { userId, date, entry_time, exit_time } = req.body;
 
+        // MT-03 FIX: Verify target user belongs to the same company as the requester.
+        const targetUserDoc = await db.collection('users').doc(userId).get();
+        if (!targetUserDoc.exists) {
+            throw new AppError('Target user not found', 404);
+        }
+        if (targetUserDoc.data().companyId !== req.user.companyId) {
+            throw new AppError('Cannot create manual records for users from another company', 403);
+        }
+
         const dailyRecordId = `${userId}_${date}`;
         const calculations = exit_time && entry_time
             ? calculateDailyAttendance(entry_time, exit_time)
@@ -305,6 +324,15 @@ router.put(
     asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { type, timestamp } = req.body;
+
+        // SEC-02 FIX: Verify the record belongs to the same company before modifying
+        const record = await db.collection('daily_attendance').doc(id).get();
+        if (!record.exists) {
+            throw new AppError('Attendance record not found', 404);
+        }
+        if (record.data().companyId !== req.user.companyId) {
+            throw new AppError('Record does not belong to your company', 403);
+        }
 
         await db.collection('daily_attendance').doc(id).update({
             type,

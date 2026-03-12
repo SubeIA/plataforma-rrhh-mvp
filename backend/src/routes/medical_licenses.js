@@ -18,6 +18,26 @@ function parseStartDate(startDate) {
     return new Date();
 }
 
+// MD-02 FIX: Serialize Firestore Timestamps to ISO strings before sending to client.
+// Prevents { _seconds: number } objects from leaking into the API response.
+function tsToISO(value) {
+    if (!value) return null;
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (value._seconds !== undefined) return new Date(value._seconds * 1000).toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return value;
+}
+
+function serializeLicense(id, data) {
+    return {
+        id,
+        ...data,
+        startDate: tsToISO(data.startDate),
+        createdAt: tsToISO(data.createdAt),
+        updatedAt: tsToISO(data.updatedAt) ?? undefined
+    };
+}
+
 /**
  * GET /api/medical-licenses
  * - Admin/HR puede ver todas
@@ -34,7 +54,7 @@ router.get('/', verifyToken, asyncHandler(async (req, res) => {
     }
 
     const snapshot = await queryRef.orderBy('createdAt', 'desc').get();
-    const licenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const licenses = snapshot.docs.map(doc => serializeLicense(doc.id, doc.data()));
 
     res.json(licenses);
 }));

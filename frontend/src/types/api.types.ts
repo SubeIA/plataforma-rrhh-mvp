@@ -127,7 +127,7 @@ export interface ApiMedicalLicense {
     userId: string;
     userName?: string;
     status: LicenseStatus;
-    startDate: string | { _seconds: number };
+    startDate: string;  // MD-02 FIX: backend now always serializes Timestamps to ISO strings
     durationDays: number;
     createdAt: string;
     createdBy: string;
